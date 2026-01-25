@@ -1,8 +1,7 @@
-import { Book, Palette, ShoppingCart, Star, Sparkles, User } from 'lucide-react';
+import { Book, Palette, ShoppingCart, Star, Sparkles, User, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
-
 interface HeroSectionProps {
   onExplore: () => void;
   cartItemsCount: number;
@@ -11,7 +10,7 @@ interface HeroSectionProps {
 
 export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSectionProps) {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   return (
     <section className="relative overflow-hidden gradient-hero py-16 md:py-24">
       {/* Decorative elements */}
@@ -30,6 +29,16 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
       
       <div className="container relative z-10">
         <div className="flex justify-end mb-4 gap-2">
+          {isAdmin && (
+            <Button 
+              variant="secondary" 
+              onClick={() => navigate('/admin')}
+              className="shadow-playful hover:scale-105 transition-transform"
+            >
+              <Settings className="w-5 h-5 mr-2" />
+              Admin
+            </Button>
+          )}
           {user ? (
             <Button 
               variant="secondary" 

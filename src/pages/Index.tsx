@@ -6,9 +6,8 @@ import { ProductGrid } from '@/components/store/ProductGrid';
 import { CartSheet } from '@/components/store/CartSheet';
 import { useProducts } from '@/hooks/useProducts';
 import { useCart } from '@/hooks/useCart';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { User, Smartphone, Package } from 'lucide-react';
+import { Smartphone, Package } from 'lucide-react';
 import type { Product } from '@/types';
 
 const Index = () => {
@@ -56,7 +55,7 @@ const Index = () => {
       />
       
       <main ref={productsRef} className="container py-12">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div className="mb-8">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'digital' | 'physical')} className="w-full sm:w-auto">
             <TabsList className="grid w-full sm:w-auto grid-cols-2 h-12">
               <TabsTrigger value="digital" className="flex items-center gap-2 text-base px-6">
@@ -69,15 +68,6 @@ const Index = () => {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={() => navigate('/auth')}
-            title="Minha Conta"
-          >
-            <User className="w-4 h-4" />
-          </Button>
         </div>
         
         {activeTab === 'digital' ? (
@@ -120,7 +110,7 @@ const Index = () => {
       <footer className="bg-muted py-8 mt-12">
         <div className="container text-center">
           <p className="text-muted-foreground text-sm">
-            © 2024 Aventuras para Colorir - Livros Digitais para Pintura Infantil
+            © 2024 Biblioteca do Brincar - Livros para Pintura Infantil
           </p>
           <p className="text-muted-foreground text-xs mt-2">
             Feito com 💜 para pequenos artistas

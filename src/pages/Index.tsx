@@ -15,7 +15,8 @@ const Index = () => {
   const productsRef = useRef<HTMLDivElement>(null);
   const [cartOpen, setCartOpen] = useState(false);
   
-  const { data: products, isLoading } = useProducts('coloring_book');
+  const { data: digitalProducts, isLoading: isLoadingDigital } = useProducts('digital');
+  const { data: physicalProducts, isLoading: isLoadingPhysical } = useProducts('physical');
   
   const { 
     items, 
@@ -52,35 +53,53 @@ const Index = () => {
         onCartClick={() => setCartOpen(true)}
       />
       
-      <main ref={productsRef} className="container py-12">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-          <div>
-            <h2 className="text-3xl font-bold font-display text-foreground">
-              Nossos Livros para Colorir ✨
+      <main ref={productsRef} className="container py-12 space-y-16">
+        <div className="flex justify-end">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={() => navigate('/auth')}
+            title="Minha Conta"
+          >
+            <User className="w-4 h-4" />
+          </Button>
+        </div>
+        
+        {/* Seção Digital */}
+        <section>
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold font-display text-foreground flex items-center gap-3">
+              📱 Livros Digitais
             </h2>
-            <p className="text-muted-foreground mt-1">
-              Escolha os melhores desenhos para seus pequenos artistas
+            <p className="text-muted-foreground mt-2">
+              Receba instantaneamente após o pagamento! Imprima quantas vezes quiser.
             </p>
           </div>
           
-          <div className="flex items-center gap-4">
-            
-            <Button 
-              variant="outline" 
-              size="icon"
-              onClick={() => navigate('/auth')}
-              title="Minha Conta"
-            >
-              <User className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
+          <ProductGrid 
+            products={digitalProducts}
+            isLoading={isLoadingDigital}
+            onAddToCart={handleAddToCart}
+          />
+        </section>
         
-        <ProductGrid 
-          products={products}
-          isLoading={isLoading}
-          onAddToCart={handleAddToCart}
-        />
+        {/* Seção Física */}
+        <section>
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold font-display text-foreground flex items-center gap-3">
+              📦 Livros Físicos
+            </h2>
+            <p className="text-muted-foreground mt-2">
+              Entrega em todo o Brasil. Papel de alta qualidade para colorir.
+            </p>
+          </div>
+          
+          <ProductGrid 
+            products={physicalProducts}
+            isLoading={isLoadingPhysical}
+            onAddToCart={handleAddToCart}
+          />
+        </section>
       </main>
       
       <footer className="bg-muted py-8 mt-12">

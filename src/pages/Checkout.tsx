@@ -163,7 +163,7 @@ const Checkout = () => {
                       />
                     ) : (
                       <span className="text-2xl">
-                        {item.product.category === 'ebook' ? '📖' : '🖍️'}
+                        {item.product.category === 'digital' ? '📱' : '📦'}
                       </span>
                     )}
                   </div>

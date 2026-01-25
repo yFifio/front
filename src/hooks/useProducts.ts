@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Product } from '@/types';
 
-export function useProducts(category?: 'ebook' | 'coloring_book') {
+export function useProducts(category?: 'digital' | 'physical') {
   return useQuery({
     queryKey: ['products', category],
     queryFn: async () => {

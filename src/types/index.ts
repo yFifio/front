@@ -5,7 +5,7 @@ export interface Product {
   price: number;
   image_url: string | null;
   age_range: string | null;
-  category: 'ebook' | 'coloring_book';
+  category: 'digital' | 'physical';
   is_active: boolean;
   created_at: string;
   updated_at: string;

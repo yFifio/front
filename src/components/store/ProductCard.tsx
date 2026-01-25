@@ -12,12 +12,12 @@ interface ProductCardProps {
 export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const categoryConfig = {
     ebook: {
-      label: '📚 Ebook',
-      bgClass: 'bg-ebook',
-      textClass: 'text-ebook-foreground',
+      label: '🖍️ Para Colorir',
+      bgClass: 'bg-coloring',
+      textClass: 'text-coloring-foreground',
     },
     coloring_book: {
-      label: '🎨 Colorir',
+      label: '🎨 Para Colorir',
       bgClass: 'bg-coloring',
       textClass: 'text-coloring-foreground',
     },

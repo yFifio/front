@@ -113,7 +113,7 @@ const Auth = () => {
       
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold font-display text-primary mb-2">
-          📚 Aventuras Mágicas
+          🎨 Aventuras para Colorir
         </h1>
         <p className="text-muted-foreground">
           Entre ou crie sua conta

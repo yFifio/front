@@ -44,14 +44,14 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
         
         <div className="text-center max-w-3xl mx-auto">
           <h1 className="text-4xl md:text-6xl font-bold text-primary-foreground mb-6 font-display">
-            📚 Aventuras Mágicas
+            🎨 Aventuras para Colorir
             <br />
-            <span className="text-coloring">para Pequenos Leitores!</span>
+            <span className="text-coloring">Diversão Garantida!</span>
           </h1>
           
           <p className="text-lg md:text-xl text-primary-foreground/90 mb-8 font-body">
-            Descubra ebooks encantadores e livros de colorir que vão despertar 
-            a imaginação e criatividade das crianças! 🎨✨
+            Livros digitais para colorir e pintar que vão despertar 
+            a criatividade dos pequenos artistas! 🖍️✨
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -60,17 +60,8 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
               onClick={onExplore}
               className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-lg px-8 py-6 rounded-2xl shadow-playful hover:scale-105 transition-all"
             >
-              <Book className="w-5 h-5 mr-2" />
-              Ver Ebooks
-            </Button>
-            <Button 
-              size="lg" 
-              variant="secondary"
-              onClick={onExplore}
-              className="font-bold text-lg px-8 py-6 rounded-2xl shadow-card hover:scale-105 transition-all"
-            >
               <Palette className="w-5 h-5 mr-2" />
-              Livros de Colorir
+              Ver Livros para Colorir
             </Button>
           </div>
         </div>

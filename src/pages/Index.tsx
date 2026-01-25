@@ -7,7 +7,6 @@ import { CartSheet } from '@/components/store/CartSheet';
 import { useProducts } from '@/hooks/useProducts';
 import { useCart } from '@/hooks/useCart';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User } from 'lucide-react';
 import type { Product } from '@/types';
 
@@ -15,11 +14,8 @@ const Index = () => {
   const navigate = useNavigate();
   const productsRef = useRef<HTMLDivElement>(null);
   const [cartOpen, setCartOpen] = useState(false);
-  const [category, setCategory] = useState<'all' | 'ebook' | 'coloring_book'>('all');
   
-  const { data: products, isLoading } = useProducts(
-    category === 'all' ? undefined : category
-  );
+  const { data: products, isLoading } = useProducts('coloring_book');
   
   const { 
     items, 
@@ -60,27 +56,14 @@ const Index = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
             <h2 className="text-3xl font-bold font-display text-foreground">
-              Nossos Produtos ✨
+              Nossos Livros para Colorir ✨
             </h2>
             <p className="text-muted-foreground mt-1">
-              Escolha os melhores conteúdos para seus pequenos
+              Escolha os melhores desenhos para seus pequenos artistas
             </p>
           </div>
           
           <div className="flex items-center gap-4">
-            <Tabs value={category} onValueChange={(v) => setCategory(v as typeof category)}>
-              <TabsList className="bg-muted">
-                <TabsTrigger value="all" className="font-medium">
-                  Todos
-                </TabsTrigger>
-                <TabsTrigger value="ebook" className="font-medium">
-                  📚 Ebooks
-                </TabsTrigger>
-                <TabsTrigger value="coloring_book" className="font-medium">
-                  🎨 Colorir
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
             
             <Button 
               variant="outline" 
@@ -103,10 +86,10 @@ const Index = () => {
       <footer className="bg-muted py-8 mt-12">
         <div className="container text-center">
           <p className="text-muted-foreground text-sm">
-            © 2024 Aventuras Mágicas - Ebooks e Livros de Colorir Infantis
+            © 2024 Aventuras para Colorir - Livros Digitais para Pintura Infantil
           </p>
           <p className="text-muted-foreground text-xs mt-2">
-            Feito com 💜 para pequenos leitores
+            Feito com 💜 para pequenos artistas
           </p>
         </div>
       </footer>

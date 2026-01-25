@@ -11,15 +11,15 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const categoryConfig = {
-    ebook: {
-      label: '🖍️ Para Colorir',
-      bgClass: 'bg-coloring',
-      textClass: 'text-coloring-foreground',
+    digital: {
+      label: '📱 Digital',
+      bgClass: 'bg-primary',
+      textClass: 'text-primary-foreground',
     },
-    coloring_book: {
-      label: '🎨 Para Colorir',
-      bgClass: 'bg-coloring',
-      textClass: 'text-coloring-foreground',
+    physical: {
+      label: '📦 Físico',
+      bgClass: 'bg-accent',
+      textClass: 'text-accent-foreground',
     },
   };
 
@@ -43,7 +43,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <span className="text-6xl">{product.category === 'ebook' ? '📖' : '🖍️'}</span>
+            <span className="text-6xl">{product.category === 'digital' ? '📱' : '📦'}</span>
           </div>
         )}
         

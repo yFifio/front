@@ -65,7 +65,7 @@ export function CartSheet({
                           />
                         ) : (
                           <span className="text-3xl">
-                            {item.product.category === 'ebook' ? '📖' : '🖍️'}
+                            {item.product.category === 'digital' ? '📱' : '📦'}
                           </span>
                         )}
                       </div>

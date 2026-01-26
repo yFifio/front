@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { HeroSection } from '@/components/store/HeroSection';
 import { ProductGrid } from '@/components/store/ProductGrid';
 import { CartSheet } from '@/components/store/CartSheet';
+import { WhatsAppButton } from '@/components/store/WhatsAppButton';
 import { useProducts } from '@/hooks/useProducts';
 import { useCart } from '@/hooks/useCart';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -126,6 +127,11 @@ const Index = () => {
         onRemoveItem={removeItem}
         onCheckout={handleCheckout}
         totalPrice={getTotalPrice()}
+      />
+      
+      <WhatsAppButton 
+        phoneNumber="+55 44 999992074"
+        message="Olá! Preciso de ajuda com a loja de livros para colorir."
       />
     </div>
   );

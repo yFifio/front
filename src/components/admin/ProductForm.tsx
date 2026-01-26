@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles, Percent } from 'lucide-react';
 import { FileUpload } from './FileUpload';
 import { ImageUpload } from './ImageUpload';
 import type { Product } from '@/types';
@@ -41,6 +41,8 @@ const productSchema = z.object({
   category: z.enum(['digital', 'physical']),
   age_range: z.string().trim().max(50, 'Faixa etária muito longa').optional(),
   is_active: z.boolean(),
+  discount_percent: z.number().min(0).max(100).default(0),
+  is_featured: z.boolean().default(false),
 });
 
 interface ProductFormProps {
@@ -58,6 +60,8 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   const [category, setCategory] = useState<'digital' | 'physical'>(product?.category || 'digital');
   const [ageRange, setAgeRange] = useState(product?.age_range || '');
   const [isActive, setIsActive] = useState(product?.is_active ?? true);
+  const [discountPercent, setDiscountPercent] = useState(product?.discount_percent?.toString() || '0');
+  const [isFeatured, setIsFeatured] = useState(product?.is_featured ?? false);
   const [digitalFiles, setDigitalFiles] = useState<DigitalFile[]>([]);
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
 
@@ -118,6 +122,8 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             category: data.category,
             age_range: data.age_range || null,
             is_active: data.is_active,
+            discount_percent: data.discount_percent,
+            is_featured: data.is_featured,
             updated_at: new Date().toISOString(),
           })
           .eq('id', product.id);
@@ -134,6 +140,8 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             category: data.category,
             age_range: data.age_range || null,
             is_active: data.is_active,
+            discount_percent: data.discount_percent,
+            is_featured: data.is_featured,
           })
           .select('id')
           .single();
@@ -247,6 +255,8 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       category,
       age_range: ageRange || undefined,
       is_active: isActive,
+      discount_percent: parseInt(discountPercent) || 0,
+      is_featured: isFeatured,
     };
 
     try {
@@ -258,6 +268,11 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       }
     }
   };
+
+  // Calculate discounted price preview
+  const currentPrice = parseFloat(price) || 0;
+  const discount = parseInt(discountPercent) || 0;
+  const discountedPrice = currentPrice * (1 - discount / 100);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -312,6 +327,45 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         </div>
       </div>
 
+      {/* Discount Field */}
+      <div className="border rounded-lg p-4 bg-muted/30">
+        <div className="flex items-center gap-2 mb-3">
+          <Percent className="w-5 h-5 text-destructive" />
+          <Label className="text-base font-semibold">Desconto</Label>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="discount">Porcentagem de Desconto (%)</Label>
+            <Input
+              id="discount"
+              type="number"
+              min="0"
+              max="100"
+              value={discountPercent}
+              onChange={(e) => setDiscountPercent(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Preço Final</Label>
+            <div className="h-10 px-3 py-2 border rounded-md bg-background flex items-center">
+              {discount > 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground line-through text-sm">
+                    R$ {currentPrice.toFixed(2)}
+                  </span>
+                  <span className="font-bold text-destructive">
+                    R$ {discountedPrice.toFixed(2)}
+                  </span>
+                </div>
+              ) : (
+                <span className="font-medium">R$ {currentPrice.toFixed(2)}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="age_range">Faixa Etária</Label>
         <Input
@@ -343,6 +397,24 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           />
         </div>
       )}
+
+      {/* Featured Product Toggle */}
+      <div className="flex items-center justify-between border rounded-lg p-4 bg-accent/10">
+        <div className="flex items-center gap-3">
+          <Sparkles className="w-5 h-5 text-accent" />
+          <div>
+            <Label htmlFor="is_featured" className="text-base font-semibold">Produto em Destaque</Label>
+            <p className="text-sm text-muted-foreground">
+              Produtos em destaque aparecem com badge especial
+            </p>
+          </div>
+        </div>
+        <Switch
+          id="is_featured"
+          checked={isFeatured}
+          onCheckedChange={setIsFeatured}
+        />
+      </div>
 
       <div className="flex items-center justify-between border rounded-lg p-4">
         <div>

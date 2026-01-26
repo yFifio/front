@@ -48,7 +48,7 @@ const MyOrders = () => {
   const [downloads, setDownloads] = useState<Record<string, DownloadItem[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'physical' | 'digital'>('physical');
+  const [activeTab, setActiveTab] = useState<'all' | 'physical' | 'digital'>('all');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -79,16 +79,16 @@ const MyOrders = () => {
 
       setOrders(ordersData as Order[] || []);
 
-      // Fetch downloads for paid orders
-      const paidOrderIds = (ordersData || [])
-        .filter(o => o.status === 'paid')
+      // Fetch downloads for paid/delivered orders
+      const downloadableOrderIds = (ordersData || [])
+        .filter(o => o.status === 'paid' || o.status === 'delivered')
         .map(o => o.id);
 
-      if (paidOrderIds.length > 0) {
+      if (downloadableOrderIds.length > 0) {
         const { data: downloadsData } = await supabase
           .from('downloads')
           .select('*')
-          .in('order_id', paidOrderIds);
+          .in('order_id', downloadableOrderIds);
 
         if (downloadsData) {
           const grouped: Record<string, DownloadItem[]> = {};
@@ -201,7 +201,7 @@ const MyOrders = () => {
   };
 
   const physicalOrders = orders.filter(hasPhysicalItems);
-  const digitalOrders = orders.filter(o => hasDigitalItems(o) && o.status === 'paid');
+  const digitalOrders = orders.filter(o => hasDigitalItems(o) && (o.status === 'paid' || o.status === 'delivered'));
 
   const getRemainingDownloads = (download: DownloadItem) => {
     const max = download.max_downloads || 5;
@@ -245,8 +245,12 @@ const MyOrders = () => {
       </header>
       
       <main className="container py-8">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'physical' | 'digital')}>
-          <TabsList className="grid w-full sm:w-auto grid-cols-2 mb-6">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'physical' | 'digital')}>
+          <TabsList className="grid w-full sm:w-auto grid-cols-3 mb-6">
+            <TabsTrigger value="all" className="flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Todos ({orders.length})
+            </TabsTrigger>
             <TabsTrigger value="physical" className="flex items-center gap-2">
               <Truck className="w-4 h-4" />
               Entregas ({physicalOrders.length})
@@ -256,6 +260,180 @@ const MyOrders = () => {
               Downloads ({digitalOrders.length})
             </TabsTrigger>
           </TabsList>
+
+          {/* All Orders Tab */}
+          <TabsContent value="all">
+            {orders.length > 0 ? (
+              <div className="space-y-4">
+                {orders.map((order) => {
+                  const statusInfo = getStatusInfo(order.status);
+                  const isDigitalOnly = order.order_items.every(item => item.products?.category === 'digital');
+                  const isPhysicalOnly = order.order_items.every(item => item.products?.category === 'physical');
+                  const orderType = isDigitalOnly ? 'Digital' : isPhysicalOnly ? 'Físico' : 'Misto';
+
+                  return (
+                    <Card key={order.id}>
+                      <CardHeader className="pb-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <CardTitle className="text-lg font-display flex items-center gap-2">
+                              <Package className="w-5 h-5 text-primary" />
+                              Pedido de {order.created_at && formatDate(order.created_at)}
+                            </CardTitle>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs px-2 py-0.5 rounded bg-muted">
+                                {orderType}
+                              </span>
+                              <p className="text-sm text-muted-foreground">
+                                {formatPrice(order.total_price)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${statusInfo.color}`}>
+                            {statusInfo.icon}
+                            {statusInfo.label}
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {order.order_items.map((item) => (
+                            <div 
+                              key={item.id} 
+                              className="flex items-center gap-3 p-2 border rounded-lg bg-muted/30"
+                            >
+                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                                {item.products?.image_url ? (
+                                  <img 
+                                    src={item.products.image_url} 
+                                    alt={item.product_name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : item.products?.category === 'digital' ? (
+                                  <FileText className="w-5 h-5 text-muted-foreground" />
+                                ) : (
+                                  <Package className="w-5 h-5 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{item.product_name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Qtd: {item.quantity || 1} • {formatPrice(item.price_at_purchase)}
+                                </p>
+                              </div>
+                              <span className="text-xs px-2 py-0.5 rounded bg-muted/50">
+                                {item.products?.category === 'digital' ? 'Digital' : 'Físico'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Status Timeline */}
+                        {order.status !== 'cancelled' && order.status !== 'pending' && (
+                          <div className="mt-4 pt-4 border-t">
+                            <p className="text-sm font-medium mb-3">Status do Pedido:</p>
+                            {isDigitalOnly ? (
+                              <div className="flex items-center gap-2">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                  order.status === 'paid' || order.status === 'delivered'
+                                    ? 'bg-primary text-primary-foreground' 
+                                    : 'bg-muted text-muted-foreground'
+                                }`}>
+                                  <CheckCircle className="w-4 h-4" />
+                                </div>
+                                <div className={`flex-1 h-1 rounded ${
+                                  order.status === 'delivered'
+                                    ? 'bg-primary' 
+                                    : 'bg-muted'
+                                }`} />
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                  order.status === 'delivered'
+                                    ? 'bg-primary text-primary-foreground' 
+                                    : 'bg-muted text-muted-foreground'
+                                }`}>
+                                  <Download className="w-4 h-4" />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                  ['paid', 'shipped', 'delivered'].includes(order.status || '') 
+                                    ? 'bg-primary text-primary-foreground' 
+                                    : 'bg-muted text-muted-foreground'
+                                }`}>
+                                  <Package className="w-4 h-4" />
+                                </div>
+                                <div className={`flex-1 h-1 rounded ${
+                                  ['shipped', 'delivered'].includes(order.status || '') 
+                                    ? 'bg-primary' 
+                                    : 'bg-muted'
+                                }`} />
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                  ['shipped', 'delivered'].includes(order.status || '') 
+                                    ? 'bg-primary text-primary-foreground' 
+                                    : 'bg-muted text-muted-foreground'
+                                }`}>
+                                  <Truck className="w-4 h-4" />
+                                </div>
+                                <div className={`flex-1 h-1 rounded ${
+                                  order.status === 'delivered' 
+                                    ? 'bg-primary' 
+                                    : 'bg-muted'
+                                }`} />
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                  order.status === 'delivered' 
+                                    ? 'bg-primary text-primary-foreground' 
+                                    : 'bg-muted text-muted-foreground'
+                                }`}>
+                                  <CheckCircle className="w-4 h-4" />
+                                </div>
+                              </div>
+                            )}
+                            <div className={`flex justify-between mt-2 text-xs text-muted-foreground ${isDigitalOnly ? '' : ''}`}>
+                              {isDigitalOnly ? (
+                                <>
+                                  <span>Pago</span>
+                                  <span>Disponível</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>Preparando</span>
+                                  <span>Enviado</span>
+                                  <span>Entregue</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {order.status === 'cancelled' && (
+                          <div className="mt-4 pt-4 border-t">
+                            <div className="flex items-center gap-2 text-destructive">
+                              <XCircle className="w-4 h-4" />
+                              <span className="text-sm font-medium">Pedido cancelado</span>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <Package className="w-12 h-12 text-muted-foreground mb-4" />
+                  <h3 className="font-bold text-lg mb-2">Nenhum pedido ainda</h3>
+                  <p className="text-muted-foreground text-center mb-6">
+                    Você ainda não realizou nenhuma compra.
+                  </p>
+                  <Button onClick={() => navigate('/')}>
+                    Ver Produtos
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
 
           <TabsContent value="physical">
             {physicalOrders.length > 0 ? (

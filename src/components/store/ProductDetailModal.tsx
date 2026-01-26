@@ -84,10 +84,20 @@ export function ProductDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden">
+      <DialogContent className="max-w-3xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
         <VisuallyHidden>
           <DialogTitle>{product.name}</DialogTitle>
         </VisuallyHidden>
+        
+        {/* Close button for mobile */}
+        <Button
+          variant="secondary"
+          size="icon"
+          className="absolute right-3 top-3 z-50 h-10 w-10 rounded-full shadow-lg bg-background/90 backdrop-blur-sm md:hidden"
+          onClick={() => onOpenChange(false)}
+        >
+          <X className="h-5 w-5" />
+        </Button>
         
         <div className="grid md:grid-cols-2 gap-0">
           {/* Image Section */}
@@ -166,7 +176,7 @@ export function ProductDetailModal({
           </div>
 
           {/* Content Section */}
-          <div className="p-6 flex flex-col">
+          <div className="p-4 md:p-6 flex flex-col">
             {/* Category & Age */}
             <div className="flex items-center gap-2 mb-4">
               <Badge className={`${config.bgClass} ${config.textClass} font-bold`}>
@@ -180,7 +190,7 @@ export function ProductDetailModal({
             </div>
 
             {/* Title */}
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground font-display mb-4">
+            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground font-display mb-4 leading-tight">
               {product.name}
             </h2>
 
@@ -226,19 +236,19 @@ export function ProductDetailModal({
             </div>
 
             {/* Price & Add to Cart */}
-            <div className="flex items-center justify-between gap-4 pt-4 border-t">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t">
               <div className="flex flex-col">
                 {hasDiscount ? (
                   <>
                     <span className="text-sm text-muted-foreground line-through">
                       {formatPrice(product.price)}
                     </span>
-                    <span className="text-3xl font-bold text-destructive font-display">
+                    <span className="text-2xl md:text-3xl font-bold text-destructive font-display">
                       {formatPrice(discountedPrice)}
                     </span>
                   </>
                 ) : (
-                  <span className="text-3xl font-bold text-primary font-display">
+                  <span className="text-2xl md:text-3xl font-bold text-primary font-display">
                     {formatPrice(product.price)}
                   </span>
                 )}
@@ -247,9 +257,9 @@ export function ProductDetailModal({
               <Button 
                 size="lg"
                 onClick={handleAddToCart}
-                className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold rounded-xl shadow-playful hover:scale-105 transition-all px-8"
+                className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground font-bold rounded-xl shadow-playful hover:scale-105 transition-all px-6 md:px-8 text-sm md:text-base"
               >
-                <ShoppingCart className="w-5 h-5 mr-2" />
+                <ShoppingCart className="w-4 h-4 md:w-5 md:h-5 mr-2" />
                 Adicionar ao Carrinho
               </Button>
             </div>

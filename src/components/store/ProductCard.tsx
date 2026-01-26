@@ -169,13 +169,13 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
         )}
       </div>
       
-      <CardContent className="p-4">
-        <h3 className="font-bold text-lg text-foreground mb-2 line-clamp-2 font-display">
+      <CardContent className="p-3 md:p-4">
+        <h3 className="font-bold text-base md:text-lg text-foreground mb-2 line-clamp-2 font-display leading-tight">
           {product.name}
         </h3>
         
         {product.description && (
-          <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
+          <p className="text-muted-foreground text-xs md:text-sm mb-3 line-clamp-2">
             {product.description}
           </p>
         )}
@@ -184,26 +184,26 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           {[1, 2, 3, 4, 5].map((star) => (
             <Star 
               key={star} 
-              className="w-4 h-4 text-coloring fill-coloring" 
+              className="w-3 h-3 md:w-4 md:h-4 text-coloring fill-coloring" 
             />
           ))}
           <span className="text-xs text-muted-foreground ml-1">(Novo!)</span>
         </div>
       </CardContent>
       
-      <CardFooter className="p-4 pt-0 flex items-center justify-between">
+      <CardFooter className="p-3 md:p-4 pt-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
         <div className="flex flex-col">
           {hasDiscount ? (
             <>
-              <span className="text-sm text-muted-foreground line-through">
+              <span className="text-xs md:text-sm text-muted-foreground line-through">
                 {formatPrice(product.price)}
               </span>
-              <span className="text-2xl font-bold text-destructive font-display">
+              <span className="text-xl md:text-2xl font-bold text-destructive font-display">
                 {formatPrice(discountedPrice)}
               </span>
             </>
           ) : (
-            <span className="text-2xl font-bold text-primary font-display">
+            <span className="text-xl md:text-2xl font-bold text-primary font-display">
               {formatPrice(product.price)}
             </span>
           )}
@@ -211,9 +211,10 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
         
         <Button 
           onClick={handleAddToCartClick}
-          className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold rounded-xl shadow-card hover:scale-105 transition-all"
+          size="sm"
+          className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground font-bold rounded-xl shadow-card hover:scale-105 transition-all text-xs md:text-sm"
         >
-          <ShoppingCart className="w-4 h-4 mr-2" />
+          <ShoppingCart className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
           Adicionar
         </Button>
       </CardFooter>

@@ -1,4 +1,4 @@
-import { Book, Palette, ShoppingCart, Star, Sparkles, User, Settings, Download } from 'lucide-react';
+import { Book, Palette, ShoppingCart, Star, Sparkles, User, Settings, Download, Package } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -59,6 +59,10 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => navigate('/my-orders')}>
+                  <Package className="w-4 h-4 mr-2" />
+                  Meus Pedidos
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/my-downloads')}>
                   <Download className="w-4 h-4 mr-2" />
                   Meus Downloads

@@ -17,6 +17,8 @@ export interface Product {
   age_range: string | null;
   category: 'digital' | 'physical';
   is_active: boolean;
+  discount_percent: number | null;
+  is_featured: boolean | null;
   created_at: string;
   updated_at: string;
   images?: ProductImage[];

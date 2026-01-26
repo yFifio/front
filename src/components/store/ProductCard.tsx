@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingCart, Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Star, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,11 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   };
 
   const config = categoryConfig[product.category];
+
+  const hasDiscount = product.discount_percent && product.discount_percent > 0;
+  const discountedPrice = hasDiscount 
+    ? product.price * (1 - (product.discount_percent || 0) / 100) 
+    : product.price;
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -61,7 +66,11 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   };
 
   return (
-    <Card className="group overflow-hidden border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-playful hover:-translate-y-1">
+    <Card className={`group overflow-hidden border-2 transition-all duration-300 hover:shadow-playful hover:-translate-y-1 ${
+      product.is_featured 
+        ? 'border-accent ring-2 ring-accent/30' 
+        : 'border-border hover:border-primary/50'
+    }`}>
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         {currentImage ? (
           <img 
@@ -115,11 +124,30 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           </>
         )}
         
-        <Badge className={`absolute top-3 left-3 ${config.bgClass} ${config.textClass} font-bold`}>
-          {config.label}
-        </Badge>
+        {/* Featured Badge */}
+        {product.is_featured && (
+          <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground font-bold animate-pulse">
+            <Sparkles className="w-3 h-3 mr-1" />
+            Destaque
+          </Badge>
+        )}
         
-        {product.age_range && (
+        {/* Category Badge */}
+        {!product.is_featured && (
+          <Badge className={`absolute top-3 left-3 ${config.bgClass} ${config.textClass} font-bold`}>
+            {config.label}
+          </Badge>
+        )}
+        
+        {/* Discount Badge */}
+        {hasDiscount && (
+          <Badge className="absolute top-3 right-3 bg-destructive text-destructive-foreground font-bold text-sm">
+            -{product.discount_percent}%
+          </Badge>
+        )}
+        
+        {/* Age Range Badge (only if no discount and has age range) */}
+        {!hasDiscount && product.age_range && (
           <Badge variant="secondary" className="absolute top-3 right-3 font-medium">
             {product.age_range}
           </Badge>
@@ -149,9 +177,22 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
       </CardContent>
       
       <CardFooter className="p-4 pt-0 flex items-center justify-between">
-        <span className="text-2xl font-bold text-primary font-display">
-          {formatPrice(product.price)}
-        </span>
+        <div className="flex flex-col">
+          {hasDiscount ? (
+            <>
+              <span className="text-sm text-muted-foreground line-through">
+                {formatPrice(product.price)}
+              </span>
+              <span className="text-2xl font-bold text-destructive font-display">
+                {formatPrice(discountedPrice)}
+              </span>
+            </>
+          ) : (
+            <span className="text-2xl font-bold text-primary font-display">
+              {formatPrice(product.price)}
+            </span>
+          )}
+        </div>
         
         <Button 
           onClick={() => onAddToCart(product)}

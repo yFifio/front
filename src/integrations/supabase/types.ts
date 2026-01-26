@@ -271,9 +271,11 @@ export type Database = {
           category: string | null
           created_at: string | null
           description: string | null
+          discount_percent: number | null
           id: string
           image_url: string | null
           is_active: boolean | null
+          is_featured: boolean | null
           name: string
           price: number
           updated_at: string | null
@@ -283,9 +285,11 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           description?: string | null
+          discount_percent?: number | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_featured?: boolean | null
           name: string
           price: number
           updated_at?: string | null
@@ -295,9 +299,11 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           description?: string | null
+          discount_percent?: number | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_featured?: boolean | null
           name?: string
           price?: number
           updated_at?: string | null

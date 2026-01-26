@@ -116,8 +116,11 @@ const Checkout = () => {
       if (paymentError) throw paymentError;
       
       if (paymentData?.init_point) {
-        // Redirect to Mercado Pago checkout
-        window.location.href = paymentData.init_point;
+        // Use sandbox_init_point for testing, init_point for production
+        // For now, using sandbox for testing purposes
+        const redirectUrl = paymentData.sandbox_init_point || paymentData.init_point;
+        clearCart();
+        window.location.href = redirectUrl;
       } else {
         throw new Error('Erro ao criar pagamento');
       }

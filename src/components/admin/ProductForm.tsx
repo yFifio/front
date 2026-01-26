@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -16,7 +16,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { FileUpload } from './FileUpload';
 import type { Product } from '@/types';
+
+interface DigitalFile {
+  id: string;
+  file_name: string;
+  file_path: string;
+}
 
 const productSchema = z.object({
   name: z.string().trim().min(1, 'Nome é obrigatório').max(200, 'Nome muito longo'),
@@ -44,6 +51,29 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   const [ageRange, setAgeRange] = useState(product?.age_range || '');
   const [imageUrl, setImageUrl] = useState(product?.image_url || '');
   const [isActive, setIsActive] = useState(product?.is_active ?? true);
+  const [digitalFiles, setDigitalFiles] = useState<DigitalFile[]>([]);
+
+  // Fetch existing digital files for the product
+  const { data: existingFiles } = useQuery({
+    queryKey: ['digital-files', product?.id],
+    queryFn: async () => {
+      if (!product?.id) return [];
+      const { data, error } = await supabase
+        .from('digital_files')
+        .select('id, file_name, file_path')
+        .eq('product_id', product.id);
+      if (error) throw error;
+      return data as DigitalFile[];
+    },
+    enabled: !!product?.id,
+  });
+
+  // Sync existing files to state
+  useEffect(() => {
+    if (existingFiles) {
+      setDigitalFiles(existingFiles);
+    }
+  }, [existingFiles]);
 
   const mutation = useMutation({
     mutationFn: async (data: z.infer<typeof productSchema>) => {
@@ -198,6 +228,18 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           </div>
         )}
       </div>
+
+      {/* Digital Files Upload - only show for digital products */}
+      {category === 'digital' && (
+        <div className="border rounded-lg p-4">
+          <FileUpload
+            productId={product?.id}
+            existingFiles={digitalFiles}
+            onFilesChange={setDigitalFiles}
+            disabled={mutation.isPending}
+          />
+        </div>
+      )}
 
       <div className="flex items-center justify-between border rounded-lg p-4">
         <div>

@@ -111,6 +111,8 @@
   }
 }
 
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap');
+
 @layer base {
   * {
     @apply border-border;
@@ -118,7 +120,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Nunito', 'Comic Sans MS', cursive, sans-serif;
+    font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 }
 

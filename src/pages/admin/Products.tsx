@@ -47,6 +47,20 @@ export default function Products() {
 
   const deleteMutation = useMutation({
     mutationFn: async (productId: string) => {
+      // First, try to delete related records that we can safely remove
+      // Delete product images
+      await supabase
+        .from('product_images')
+        .delete()
+        .eq('product_id', productId);
+      
+      // Delete digital files
+      await supabase
+        .from('digital_files')
+        .delete()
+        .eq('product_id', productId);
+      
+      // Now try to delete the product
       const { error } = await supabase
         .from('products')
         .delete()
@@ -60,8 +74,37 @@ export default function Products() {
       toast.success('Produto excluído com sucesso!');
       setDeletingProduct(null);
     },
+    onError: (error: any) => {
+      // Check if error is due to foreign key constraint (product has orders)
+      if (error.code === '23503' || error.message?.includes('foreign key')) {
+        toast.error(
+          'Este produto tem pedidos associados e não pode ser excluído. Use o botão "Desativar" para ocultá-lo da loja.',
+          { duration: 5000 }
+        );
+      } else {
+        toast.error('Erro ao excluir produto: ' + error.message);
+      }
+      setDeletingProduct(null);
+    },
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      const { error } = await supabase
+        .from('products')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', productId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success('Produto desativado! Não aparecerá mais na loja.');
+      setDeletingProduct(null);
+    },
     onError: (error) => {
-      toast.error('Erro ao excluir produto: ' + error.message);
+      toast.error('Erro ao desativar produto: ' + error.message);
     },
   });
 
@@ -198,19 +241,28 @@ export default function Products() {
       <AlertDialog open={!!deletingProduct} onOpenChange={() => setDeletingProduct(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Produto</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir "{deletingProduct?.name}"? 
-              Esta ação não pode ser desfeita.
+            <AlertDialogTitle>Excluir ou Desativar Produto</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>O que deseja fazer com "<strong>{deletingProduct?.name}</strong>"?</p>
+              <div className="bg-muted p-3 rounded-lg text-sm space-y-2">
+                <p><strong>🗑️ Excluir:</strong> Remove permanentemente. Só funciona se não houver pedidos.</p>
+                <p><strong>🚫 Desativar:</strong> Oculta da loja, mas mantém histórico de pedidos.</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-muted text-muted-foreground hover:bg-muted/80"
+              onClick={() => deletingProduct && deactivateMutation.mutate(deletingProduct.id)}
+            >
+              🚫 Desativar
+            </AlertDialogAction>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => deletingProduct && deleteMutation.mutate(deletingProduct.id)}
             >
-              Excluir
+              🗑️ Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

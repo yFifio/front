@@ -55,17 +55,17 @@ const Index = () => {
         onCartClick={() => setCartOpen(true)}
       />
       
-      <main ref={productsRef} className="container py-12">
-        <div className="mb-8">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'digital' | 'physical')} className="w-full sm:w-auto">
-            <TabsList className="grid w-full sm:w-auto grid-cols-2 h-12">
-              <TabsTrigger value="digital" className="flex items-center gap-2 text-base px-6">
+      <main ref={productsRef} className="container py-8 md:py-12 px-4">
+        <div className="mb-6 md:mb-8">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'digital' | 'physical')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 h-11 md:h-12">
+              <TabsTrigger value="digital" className="flex items-center gap-1 md:gap-2 text-sm md:text-base px-2 md:px-6">
                 <Smartphone className="w-4 h-4" />
-                Digitais
+                <span>Digitais</span>
               </TabsTrigger>
-              <TabsTrigger value="physical" className="flex items-center gap-2 text-base px-6">
+              <TabsTrigger value="physical" className="flex items-center gap-1 md:gap-2 text-sm md:text-base px-2 md:px-6">
                 <Package className="w-4 h-4" />
-                Físicos
+                <span>Físicos</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -73,11 +73,11 @@ const Index = () => {
         
         {activeTab === 'digital' ? (
           <section>
-            <div className="mb-8">
-              <h2 className="text-3xl font-bold font-display text-foreground flex items-center gap-3">
+            <div className="mb-6 md:mb-8">
+              <h2 className="text-2xl md:text-3xl font-bold font-display text-foreground flex items-center gap-2 md:gap-3">
                 📱 Livros Digitais
               </h2>
-              <p className="text-muted-foreground mt-2">
+              <p className="text-sm md:text-base text-muted-foreground mt-2">
                 Receba instantaneamente após o pagamento! Imprima quantas vezes quiser.
               </p>
             </div>
@@ -90,11 +90,11 @@ const Index = () => {
           </section>
         ) : (
           <section>
-            <div className="mb-8">
-              <h2 className="text-3xl font-bold font-display text-foreground flex items-center gap-3">
+            <div className="mb-6 md:mb-8">
+              <h2 className="text-2xl md:text-3xl font-bold font-display text-foreground flex items-center gap-2 md:gap-3">
                 📦 Livros Físicos
               </h2>
-              <p className="text-muted-foreground mt-2">
+              <p className="text-sm md:text-base text-muted-foreground mt-2">
                 Entrega em todo o Brasil. Papel de alta qualidade para colorir.
               </p>
             </div>

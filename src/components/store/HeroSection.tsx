@@ -36,15 +36,16 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
       </div>
       
       <div className="container relative z-10">
-        <div className="flex justify-end mb-4 gap-2">
+        <div className="flex flex-wrap justify-center md:justify-end mb-4 gap-2">
           {isAdmin && (
             <Button 
               variant="secondary" 
+              size="sm"
               onClick={() => navigate('/admin')}
-              className="shadow-playful hover:scale-105 transition-transform"
+              className="shadow-playful hover:scale-105 transition-transform text-xs md:text-sm"
             >
-              <Settings className="w-5 h-5 mr-2" />
-              Admin
+              <Settings className="w-4 h-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">Admin</span>
             </Button>
           )}
           {user ? (
@@ -52,13 +53,15 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="secondary" 
-                  className="shadow-playful hover:scale-105 transition-transform"
+                  size="sm"
+                  className="shadow-playful hover:scale-105 transition-transform text-xs md:text-sm"
                 >
-                  <User className="w-5 h-5 mr-2" />
-                  Minha Conta
+                  <User className="w-4 h-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Minha Conta</span>
+                  <span className="sm:hidden">Conta</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-48 bg-popover border shadow-lg z-50">
                 <DropdownMenuItem onClick={() => navigate('/my-orders')}>
                   <Package className="w-4 h-4 mr-2" />
                   Meus Pedidos
@@ -76,37 +79,39 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
           ) : (
             <Button 
               variant="secondary" 
+              size="sm"
               onClick={() => navigate('/auth')}
-              className="shadow-playful hover:scale-105 transition-transform"
+              className="shadow-playful hover:scale-105 transition-transform text-xs md:text-sm"
             >
-              <User className="w-5 h-5 mr-2" />
-              Entrar / Cadastrar
+              <User className="w-4 h-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">Entrar / Cadastrar</span>
+              <span className="sm:hidden">Entrar</span>
             </Button>
           )}
           <Button 
             variant="secondary" 
-            size="lg" 
+            size="sm"
             onClick={onCartClick}
-            className="shadow-playful hover:scale-105 transition-transform"
+            className="shadow-playful hover:scale-105 transition-transform text-xs md:text-sm"
           >
-            <ShoppingCart className="w-5 h-5 mr-2" />
-            Carrinho
+            <ShoppingCart className="w-4 h-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Carrinho</span>
             {cartItemsCount > 0 && (
-              <span className="ml-2 bg-accent text-accent-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">
+              <span className="ml-1 md:ml-2 bg-accent text-accent-foreground rounded-full w-5 h-5 md:w-6 md:h-6 flex items-center justify-center text-xs font-bold">
                 {cartItemsCount}
               </span>
             )}
           </Button>
         </div>
         
-        <div className="text-center max-w-3xl mx-auto">
-          <h1 className="text-4xl md:text-6xl font-bold text-primary-foreground mb-6 font-display">
+        <div className="text-center max-w-3xl mx-auto px-4">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-4 md:mb-6 font-display leading-tight">
             📚 Biblioteca de Brincar
             <br />
             <span className="text-coloring">Diversão Garantida!</span>
           </h1>
           
-          <p className="text-lg md:text-xl text-primary-foreground/90 mb-8 font-body">
+          <p className="text-base md:text-lg lg:text-xl text-primary-foreground/90 mb-6 md:mb-8 font-body">
             Livros digitais para colorir e pintar que vão despertar 
             a criatividade dos pequenos artistas! 🖍️✨
           </p>
@@ -115,7 +120,7 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
             <Button 
               size="lg" 
               onClick={onExplore}
-              className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-lg px-8 py-6 rounded-2xl shadow-playful hover:scale-105 transition-all"
+              className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-base md:text-lg px-6 md:px-8 py-5 md:py-6 rounded-2xl shadow-playful hover:scale-105 transition-all"
             >
               <Palette className="w-5 h-5 mr-2" />
               Ver Livros para Colorir

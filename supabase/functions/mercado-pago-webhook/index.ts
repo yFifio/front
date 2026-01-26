@@ -6,6 +6,82 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Verify Mercado Pago webhook signature
+async function verifySignature(
+  req: Request,
+  body: string,
+  dataId: string
+): Promise<boolean> {
+  const WEBHOOK_SECRET = Deno.env.get("MERCADO_PAGO_WEBHOOK_SECRET");
+  
+  // If no secret configured, log warning but allow (for backward compatibility during setup)
+  if (!WEBHOOK_SECRET) {
+    console.warn("MERCADO_PAGO_WEBHOOK_SECRET not configured - signature verification skipped");
+    return true;
+  }
+
+  const xSignature = req.headers.get("x-signature");
+  const xRequestId = req.headers.get("x-request-id");
+
+  if (!xSignature || !xRequestId) {
+    console.error("Missing signature headers: x-signature or x-request-id");
+    return false;
+  }
+
+  // Parse x-signature header (format: ts=xxx,v1=xxx)
+  const parts = xSignature.split(",");
+  let ts = "";
+  let hash = "";
+  
+  for (const part of parts) {
+    const [key, value] = part.split("=");
+    if (key === "ts") ts = value;
+    if (key === "v1") hash = value;
+  }
+
+  if (!ts || !hash) {
+    console.error("Invalid signature format - missing ts or v1");
+    return false;
+  }
+
+  // Build manifest according to Mercado Pago spec
+  // Format: id:{data.id};request-id:{x-request-id};ts:{ts};
+  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+
+  // Create HMAC-SHA256 signature
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(WEBHOOK_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  
+  const signatureBuffer = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(manifest)
+  );
+
+  // Convert to hex string
+  const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  const isValid = expectedSignature === hash;
+  
+  if (!isValid) {
+    console.error("Signature verification failed", {
+      manifest,
+      expected: expectedSignature,
+      received: hash,
+    });
+  }
+
+  return isValid;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -21,7 +97,10 @@ serve(async (req) => {
       throw new Error("MERCADO_PAGO_ACCESS_TOKEN not configured");
     }
 
-    const body = await req.json();
+    // Read body as text first for signature verification
+    const bodyText = await req.text();
+    const body = JSON.parse(bodyText);
+    
     console.log("Webhook received:", JSON.stringify(body, null, 2));
 
     // Mercado Pago sends different notification types
@@ -32,6 +111,16 @@ serve(async (req) => {
         console.log("No payment ID in webhook");
         return new Response("OK", { status: 200 });
       }
+
+      // Verify webhook signature before processing
+      const isValidSignature = await verifySignature(req, bodyText, String(paymentId));
+      
+      if (!isValidSignature) {
+        console.error("Invalid webhook signature - rejecting request");
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      console.log("Signature verified successfully");
 
       // Fetch payment details from Mercado Pago
       const mpResponse = await fetch(

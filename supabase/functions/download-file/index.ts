@@ -97,7 +97,7 @@ serve(async (req) => {
     // Generate signed URL for the file
     const { data: signedData, error: signedError } = await supabase.storage
       .from("digital-products")
-      .createSignedUrl(file.file_path, 300); // 5 minutes
+      .createSignedUrl(file.file_path, 0); // 0 minutes
 
     if (signedError || !signedData) {
       console.error("Error creating signed URL:", signedError);

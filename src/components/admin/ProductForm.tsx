@@ -123,8 +123,9 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           .eq('id', product.id);
         
         if (error) throw error;
+        return product.id;
       } else {
-        const { error } = await supabase
+        const { data: newProduct, error } = await supabase
           .from('products')
           .insert({
             name: data.name,
@@ -132,14 +133,73 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             price: data.price,
             category: data.category,
             age_range: data.age_range || null,
-            
             is_active: data.is_active,
-          });
+          })
+          .select('id')
+          .single();
         
         if (error) throw error;
+        return newProduct.id;
       }
     },
-    onSuccess: () => {
+    onSuccess: async (productId) => {
+      // For new products, save the temporary images to the database
+      if (!isEditing && productImages.length > 0) {
+        try {
+          // Move images from temp folder and save to database
+          for (let i = 0; i < productImages.length; i++) {
+            const img = productImages[i];
+            
+            // If image is in temp folder, move it
+            if (img.file_path.startsWith('temp/')) {
+              const fileName = img.file_path.split('/').pop();
+              const newPath = `${productId}/${fileName}`;
+              
+              // Copy to new location
+              const { error: copyError } = await supabase.storage
+                .from('product-images')
+                .copy(img.file_path, newPath);
+              
+              if (copyError) {
+                console.error('Error copying image:', copyError);
+                continue;
+              }
+              
+              // Get new public URL
+              const { data: { publicUrl } } = supabase.storage
+                .from('product-images')
+                .getPublicUrl(newPath);
+              
+              // Delete old temp file
+              await supabase.storage
+                .from('product-images')
+                .remove([img.file_path]);
+              
+              // Insert into database
+              await supabase
+                .from('product_images')
+                .insert({
+                  product_id: productId,
+                  image_url: publicUrl,
+                  file_path: newPath,
+                  is_primary: img.is_primary,
+                  display_order: i,
+                });
+
+              // Update product's main image_url if this is primary
+              if (img.is_primary) {
+                await supabase
+                  .from('products')
+                  .update({ image_url: publicUrl })
+                  .eq('id', productId);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error saving product images:', error);
+        }
+      }
+
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success(isEditing ? 'Produto atualizado!' : 'Produto criado!');

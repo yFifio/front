@@ -57,12 +57,12 @@ const MyDownloads = () => {
 
   const fetchUserDownloads = async () => {
     try {
-      // Get orders for current user that are paid
+      // Get orders for current user that are paid or delivered
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
         .select('id, status, created_at, total_price')
         .eq('customer_id', user?.id)
-        .eq('status', 'paid')
+        .in('status', ['paid', 'delivered'])
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;

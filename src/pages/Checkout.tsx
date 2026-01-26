@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useCart } from '@/hooks/useCart';
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Loader2, ShoppingBag, CreditCard } from 'lucide-react';
 import { z } from 'zod';
+import DeliveryAddressForm from '@/components/checkout/DeliveryAddressForm';
 
 const checkoutSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -25,6 +26,18 @@ const Checkout = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState(user?.email || '');
   const [name, setName] = useState('');
+  
+  // Delivery address fields
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryCity, setDeliveryCity] = useState('');
+  const [deliveryState, setDeliveryState] = useState('');
+  const [deliveryZip, setDeliveryZip] = useState('');
+  const [deliveryPhone, setDeliveryPhone] = useState('');
+
+  // Check if cart has physical products
+  const hasPhysicalProducts = useMemo(() => {
+    return items.some(item => item.product.category === 'physical');
+  }, [items]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -57,6 +70,14 @@ const Checkout = () => {
     } catch (err) {
       if (err instanceof z.ZodError) {
         toast.error(err.errors[0].message);
+        return;
+      }
+    }
+
+    // Validate delivery address for physical products
+    if (hasPhysicalProducts) {
+      if (!deliveryAddress || !deliveryCity || !deliveryState || !deliveryZip || !deliveryPhone) {
+        toast.error('Preencha todos os campos de endereço para produtos físicos');
         return;
       }
     }
@@ -109,6 +130,16 @@ const Checkout = () => {
               email: email,
               name: name,
             },
+            // Include delivery address for physical products
+            ...(hasPhysicalProducts && {
+              deliveryAddress: {
+                address: deliveryAddress,
+                city: deliveryCity,
+                state: deliveryState,
+                zip: deliveryZip,
+                phone: deliveryPhone,
+              },
+            }),
           },
         }
       );
@@ -222,9 +253,27 @@ const Checkout = () => {
                     required
                   />
                   <p className="text-xs text-muted-foreground">
-                    Você receberá o link de download neste email após a confirmação do pagamento.
+                    {hasPhysicalProducts 
+                      ? 'Preencha o endereço de entrega abaixo para produtos físicos.'
+                      : 'Você receberá o link de download neste email após a confirmação do pagamento.'}
                   </p>
                 </div>
+                
+                {/* Delivery Address Form - Only for physical products */}
+                {hasPhysicalProducts && (
+                  <DeliveryAddressForm
+                    address={deliveryAddress}
+                    setAddress={setDeliveryAddress}
+                    city={deliveryCity}
+                    setCity={setDeliveryCity}
+                    state={deliveryState}
+                    setState={setDeliveryState}
+                    zip={deliveryZip}
+                    setZip={setDeliveryZip}
+                    phone={deliveryPhone}
+                    setPhone={setDeliveryPhone}
+                  />
+                )}
                 
                 <Separator />
                 

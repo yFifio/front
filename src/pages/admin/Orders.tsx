@@ -507,6 +507,8 @@ export default function Orders() {
         <OrderDeliveryForm
           orderId={deliveryEditOrder.id}
           customerName={deliveryEditOrder.customer_name}
+          customerEmail={deliveryEditOrder.customer_email}
+          orderItems={deliveryEditOrder.order_items}
           initialData={{
             delivery_address: deliveryEditOrder.delivery_address,
             delivery_city: deliveryEditOrder.delivery_city,

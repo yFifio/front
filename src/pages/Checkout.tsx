@@ -116,11 +116,9 @@ const Checkout = () => {
       if (paymentError) throw paymentError;
       
       if (paymentData?.init_point) {
-        // Use sandbox_init_point for testing, init_point for production
-        // For now, using sandbox for testing purposes
-        const redirectUrl = paymentData.sandbox_init_point || paymentData.init_point;
+        // Use init_point for production payments
         clearCart();
-        window.location.href = redirectUrl;
+        window.location.href = paymentData.init_point;
       } else {
         throw new Error('Erro ao criar pagamento');
       }

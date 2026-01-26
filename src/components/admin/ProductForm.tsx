@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import { FileUpload } from './FileUpload';
+import { ImageUpload } from './ImageUpload';
 import type { Product } from '@/types';
 
 interface DigitalFile {
@@ -25,13 +26,20 @@ interface DigitalFile {
   file_path: string;
 }
 
+interface ProductImage {
+  id: string;
+  image_url: string;
+  file_path: string;
+  is_primary: boolean;
+  display_order: number;
+}
+
 const productSchema = z.object({
   name: z.string().trim().min(1, 'Nome é obrigatório').max(200, 'Nome muito longo'),
   description: z.string().trim().max(1000, 'Descrição muito longa').optional(),
   price: z.number().min(0.01, 'Preço deve ser maior que zero'),
   category: z.enum(['digital', 'physical']),
   age_range: z.string().trim().max(50, 'Faixa etária muito longa').optional(),
-  image_url: z.string().url('URL inválida').optional().or(z.literal('')),
   is_active: z.boolean(),
 });
 
@@ -49,9 +57,9 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   const [price, setPrice] = useState(product?.price?.toString() || '');
   const [category, setCategory] = useState<'digital' | 'physical'>(product?.category || 'digital');
   const [ageRange, setAgeRange] = useState(product?.age_range || '');
-  const [imageUrl, setImageUrl] = useState(product?.image_url || '');
   const [isActive, setIsActive] = useState(product?.is_active ?? true);
   const [digitalFiles, setDigitalFiles] = useState<DigitalFile[]>([]);
+  const [productImages, setProductImages] = useState<ProductImage[]>([]);
 
   // Fetch existing digital files for the product
   const { data: existingFiles } = useQuery({
@@ -68,12 +76,35 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     enabled: !!product?.id,
   });
 
+  // Fetch existing product images
+  const { data: existingImages } = useQuery({
+    queryKey: ['product-images', product?.id],
+    queryFn: async () => {
+      if (!product?.id) return [];
+      const { data, error } = await supabase
+        .from('product_images')
+        .select('id, image_url, file_path, is_primary, display_order')
+        .eq('product_id', product.id)
+        .order('display_order');
+      if (error) throw error;
+      return data as ProductImage[];
+    },
+    enabled: !!product?.id,
+  });
+
   // Sync existing files to state
   useEffect(() => {
     if (existingFiles) {
       setDigitalFiles(existingFiles);
     }
   }, [existingFiles]);
+
+  // Sync existing images to state
+  useEffect(() => {
+    if (existingImages) {
+      setProductImages(existingImages);
+    }
+  }, [existingImages]);
 
   const mutation = useMutation({
     mutationFn: async (data: z.infer<typeof productSchema>) => {
@@ -86,7 +117,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             price: data.price,
             category: data.category,
             age_range: data.age_range || null,
-            image_url: data.image_url || null,
             is_active: data.is_active,
             updated_at: new Date().toISOString(),
           })
@@ -102,7 +132,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             price: data.price,
             category: data.category,
             age_range: data.age_range || null,
-            image_url: data.image_url || null,
+            
             is_active: data.is_active,
           });
         
@@ -129,7 +159,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       price: parseFloat(price) || 0,
       category,
       age_range: ageRange || undefined,
-      image_url: imageUrl || undefined,
       is_active: isActive,
     };
 
@@ -206,27 +235,14 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="image_url">URL da Imagem</Label>
-        <Input
-          id="image_url"
-          type="url"
-          value={imageUrl}
-          onChange={(e) => setImageUrl(e.target.value)}
-          placeholder="https://exemplo.com/imagem.jpg"
+      {/* Image Upload */}
+      <div className="border rounded-lg p-4">
+        <ImageUpload
+          productId={product?.id}
+          images={productImages}
+          onImagesChange={setProductImages}
+          disabled={mutation.isPending}
         />
-        {imageUrl && (
-          <div className="mt-2 aspect-video max-w-xs bg-muted rounded-lg overflow-hidden">
-            <img 
-              src={imageUrl} 
-              alt="Preview" 
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
-            />
-          </div>
-        )}
       </div>
 
       {/* Digital Files Upload - only show for digital products */}

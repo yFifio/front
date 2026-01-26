@@ -85,52 +85,18 @@ const Checkout = () => {
     setIsLoading(true);
     
     try {
-      // Create the order
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          customer_id: user?.id || null,
-          customer_email: email,
-          customer_name: name,
-          total_price: getTotalPrice(),
-          status: 'pending',
-        })
-        .select()
-        .single();
-      
-      if (orderError) throw orderError;
-      
-      // Create order items
-      const orderItems = items.map(item => ({
-        order_id: order.id,
-        product_id: item.product.id,
-        product_name: item.product.name,
-        price_at_purchase: item.product.price,
-        quantity: item.quantity,
-      }));
-      
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-      
-      if (itemsError) throw itemsError;
-      
-      // Call edge function to create Mercado Pago payment
-      const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
-        'create-mercado-pago-payment',
+      // Create the order via secure edge function (validates prices server-side)
+      const { data: orderData, error: orderError } = await supabase.functions.invoke(
+        'create-order',
         {
           body: {
-            orderId: order.id,
             items: items.map(item => ({
-              title: item.product.name,
+              productId: item.product.id,
               quantity: item.quantity,
-              unit_price: item.product.price,
             })),
-            payer: {
-              email: email,
-              name: name,
-            },
-            // Include delivery address for physical products
+            customerEmail: email,
+            customerName: name,
+            customerId: user?.id || null,
             ...(hasPhysicalProducts && {
               deliveryAddress: {
                 address: deliveryAddress,
@@ -140,6 +106,24 @@ const Checkout = () => {
                 phone: deliveryPhone,
               },
             }),
+          },
+        }
+      );
+      
+      if (orderError) throw orderError;
+      if (orderData?.error) throw new Error(orderData.error);
+      
+      // Call edge function to create Mercado Pago payment using validated order data
+      const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
+        'create-mercado-pago-payment',
+        {
+          body: {
+            orderId: orderData.orderId,
+            items: orderData.items, // Use server-validated items with correct prices
+            payer: {
+              email: email,
+              name: name,
+            },
           },
         }
       );

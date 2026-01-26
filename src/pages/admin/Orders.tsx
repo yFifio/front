@@ -77,17 +77,49 @@ export default function Orders() {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
+    mutationFn: async ({ orderId, status, order }: { orderId: string; status: string; order: Order }) => {
       const { error } = await supabase
         .from('orders')
         .update({ status, updated_at: new Date().toISOString() })
         .eq('id', orderId);
       
       if (error) throw error;
+      
+      return { orderId, status, order };
     },
-    onSuccess: () => {
+    onSuccess: async ({ orderId, status, order }) => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       toast.success('Status atualizado!');
+      
+      // Send status email to customer
+      try {
+        const { error: emailError } = await supabase.functions.invoke(
+          'send-order-status-email',
+          {
+            body: {
+              customerEmail: order.customer_email,
+              customerName: order.customer_name,
+              orderId: orderId,
+              status: status,
+              orderItems: order.order_items.map(item => ({
+                name: item.product_name,
+                quantity: item.quantity || 1,
+              })),
+              totalPrice: order.total_price,
+              trackingCode: order.tracking_code,
+            },
+          }
+        );
+
+        if (emailError) {
+          console.error('Error sending status email:', emailError);
+          toast.warning('Status salvo, mas houve erro ao enviar email');
+        } else {
+          toast.success('Email de status enviado ao cliente!');
+        }
+      } catch (err) {
+        console.error('Error invoking email function:', err);
+      }
     },
     onError: (error) => {
       toast.error('Erro ao atualizar: ' + error.message);
@@ -180,8 +212,8 @@ export default function Orders() {
     setIsDetailsOpen(true);
   };
 
-  const handleStatusChange = (orderId: string, newStatus: string) => {
-    updateStatusMutation.mutate({ orderId, status: newStatus });
+  const handleStatusChange = (order: Order, newStatus: string) => {
+    updateStatusMutation.mutate({ orderId: order.id, status: newStatus, order });
   };
 
   const getAvailableStatuses = (order: Order) => {
@@ -284,7 +316,7 @@ export default function Orders() {
                           
                           <Select 
                             value={order.status || 'pending'}
-                            onValueChange={(value) => handleStatusChange(order.id, value)}
+                            onValueChange={(value) => handleStatusChange(order, value)}
                           >
                             <SelectTrigger className="w-36">
                               <SelectValue />

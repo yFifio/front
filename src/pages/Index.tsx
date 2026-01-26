@@ -111,7 +111,7 @@ const Index = () => {
       <footer className="bg-muted py-8 mt-12">
         <div className="container text-center">
           <p className="text-muted-foreground text-sm">
-            © 2024 Biblioteca do Brincar - Livros para Pintura Infantil
+            © 2024 Biblioteca de Brincar - Livros para Pintura Infantil
           </p>
           <p className="text-muted-foreground text-xs mt-2">
             Feito com 💜 para pequenos artistas

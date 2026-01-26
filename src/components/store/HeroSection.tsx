@@ -1,7 +1,15 @@
-import { Book, Palette, ShoppingCart, Star, Sparkles, User, Settings } from 'lucide-react';
+import { Book, Palette, ShoppingCart, Star, Sparkles, User, Settings, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
 interface HeroSectionProps {
   onExplore: () => void;
   cartItemsCount: number;
@@ -40,14 +48,27 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
             </Button>
           )}
           {user ? (
-            <Button 
-              variant="secondary" 
-              onClick={() => signOut()}
-              className="shadow-playful hover:scale-105 transition-transform"
-            >
-              <User className="w-5 h-5 mr-2" />
-              Sair
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="secondary" 
+                  className="shadow-playful hover:scale-105 transition-transform"
+                >
+                  <User className="w-5 h-5 mr-2" />
+                  Minha Conta
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => navigate('/my-downloads')}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Meus Downloads
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut()}>
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <Button 
               variant="secondary" 

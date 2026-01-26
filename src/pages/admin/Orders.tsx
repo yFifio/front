@@ -19,7 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Eye, Package, Truck, CheckCircle, Clock, XCircle, Smartphone, FileText } from 'lucide-react';
+import { Eye, Package, Truck, CheckCircle, Clock, XCircle, Smartphone, FileText, MapPin } from 'lucide-react';
+import { OrderDeliveryForm } from '@/components/admin/OrderDeliveryForm';
 
 interface OrderItem {
   id: string;
@@ -40,12 +41,20 @@ interface Order {
   status: string | null;
   created_at: string | null;
   order_items: OrderItem[];
+  delivery_address: string | null;
+  delivery_city: string | null;
+  delivery_state: string | null;
+  delivery_zip: string | null;
+  delivery_phone: string | null;
+  tracking_code: string | null;
 }
 
 export default function Orders() {
   const queryClient = useQueryClient();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isDeliveryFormOpen, setIsDeliveryFormOpen] = useState(false);
+  const [deliveryEditOrder, setDeliveryEditOrder] = useState<Order | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'physical' | 'digital'>('all');
 
   const { data: orders, isLoading } = useQuery({
@@ -289,6 +298,20 @@ export default function Orders() {
                             </SelectContent>
                           </Select>
                           
+                          {hasPhysicalItems(order) && (
+                            <Button 
+                              variant="outline" 
+                              size="icon"
+                              onClick={() => {
+                                setDeliveryEditOrder(order);
+                                setIsDeliveryFormOpen(true);
+                              }}
+                              title="Editar dados de entrega"
+                            >
+                              <MapPin className="w-4 h-4" />
+                            </Button>
+                          )}
+                          
                           <Button 
                             variant="outline" 
                             size="icon"
@@ -393,6 +416,50 @@ export default function Orders() {
                   {getStatusBadge(selectedOrder.status || 'pending')}
                 </div>
               </div>
+
+              {/* Delivery Info for Physical Orders */}
+              {hasPhysicalItems(selectedOrder) && (
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-bold flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      Dados de Entrega
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setDeliveryEditOrder(selectedOrder);
+                        setIsDeliveryFormOpen(true);
+                      }}
+                    >
+                      Editar
+                    </Button>
+                  </div>
+                  <div className="bg-muted rounded p-3 text-sm space-y-1">
+                    {selectedOrder.delivery_address ? (
+                      <>
+                        <p>{selectedOrder.delivery_address}</p>
+                        <p>
+                          {selectedOrder.delivery_city}
+                          {selectedOrder.delivery_state && ` - ${selectedOrder.delivery_state}`}
+                        </p>
+                        {selectedOrder.delivery_zip && <p>CEP: {selectedOrder.delivery_zip}</p>}
+                        {selectedOrder.delivery_phone && <p>Tel: {selectedOrder.delivery_phone}</p>}
+                        {selectedOrder.tracking_code && (
+                          <p className="font-medium text-primary">
+                            Rastreio: {selectedOrder.tracking_code}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-muted-foreground italic">
+                        Nenhum dado de entrega cadastrado
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
               
               <div className="border-t pt-4">
                 <p className="font-bold mb-2">Itens do Pedido</p>
@@ -434,6 +501,27 @@ export default function Orders() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delivery Form Dialog */}
+      {deliveryEditOrder && (
+        <OrderDeliveryForm
+          orderId={deliveryEditOrder.id}
+          customerName={deliveryEditOrder.customer_name}
+          initialData={{
+            delivery_address: deliveryEditOrder.delivery_address,
+            delivery_city: deliveryEditOrder.delivery_city,
+            delivery_state: deliveryEditOrder.delivery_state,
+            delivery_zip: deliveryEditOrder.delivery_zip,
+            delivery_phone: deliveryEditOrder.delivery_phone,
+            tracking_code: deliveryEditOrder.tracking_code,
+          }}
+          open={isDeliveryFormOpen}
+          onOpenChange={(open) => {
+            setIsDeliveryFormOpen(open);
+            if (!open) setDeliveryEditOrder(null);
+          }}
+        />
+      )}
     </div>
   );
 }

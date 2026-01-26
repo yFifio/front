@@ -227,6 +227,44 @@ export type Database = {
           },
         ]
       }
+      product_images: {
+        Row: {
+          created_at: string
+          display_order: number
+          file_path: string
+          id: string
+          image_url: string
+          is_primary: boolean
+          product_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          file_path: string
+          id?: string
+          image_url: string
+          is_primary?: boolean
+          product_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          file_path?: string
+          id?: string
+          image_url?: string
+          is_primary?: boolean
+          product_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_images_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           age_range: string | null

@@ -3,6 +3,7 @@ import { ShoppingCart, Star, ChevronLeft, ChevronRight, Sparkles } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ProductDetailModal } from './ProductDetailModal';
 import type { Product } from '@/types';
 
 interface ProductCardProps {
@@ -12,6 +13,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const categoryConfig = {
     digital: {
@@ -65,12 +67,25 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
     );
   };
 
+  const handleCardClick = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleAddToCartClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onAddToCart(product);
+  };
+
   return (
-    <Card className={`group overflow-hidden border-2 transition-all duration-300 hover:shadow-playful hover:-translate-y-1 ${
-      product.is_featured 
-        ? 'border-accent ring-2 ring-accent/30' 
-        : 'border-border hover:border-primary/50'
-    }`}>
+    <>
+      <Card 
+        className={`group overflow-hidden border-2 transition-all duration-300 hover:shadow-playful hover:-translate-y-1 cursor-pointer ${
+          product.is_featured 
+            ? 'border-accent ring-2 ring-accent/30' 
+            : 'border-border hover:border-primary/50'
+        }`}
+        onClick={handleCardClick}
+      >
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         {currentImage ? (
           <img 
@@ -195,7 +210,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
         </div>
         
         <Button 
-          onClick={() => onAddToCart(product)}
+          onClick={handleAddToCartClick}
           className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold rounded-xl shadow-card hover:scale-105 transition-all"
         >
           <ShoppingCart className="w-4 h-4 mr-2" />
@@ -203,5 +218,13 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
         </Button>
       </CardFooter>
     </Card>
+
+    <ProductDetailModal
+      product={product}
+      open={isModalOpen}
+      onOpenChange={setIsModalOpen}
+      onAddToCart={onAddToCart}
+    />
+  </>
   );
 }

@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Mail, CheckCircle } from 'lucide-react';
 import { z } from 'zod';
 
 const emailSchema = z.string().email('Email inválido');
@@ -24,6 +25,11 @@ const Auth = () => {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupName, setSignupName] = useState('');
+  
+  // Forgot password states
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   // Redirect if already logged in
   if (user && !authLoading) {
@@ -92,10 +98,134 @@ const Auth = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      emailSchema.parse(forgotEmail);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        toast.error(err.errors[0].message);
+        return;
+      }
+    }
+    
+    setIsLoading(true);
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    
+    setIsLoading(false);
+    
+    if (error) {
+      toast.error('Erro ao enviar email: ' + error.message);
+    } else {
+      setResetEmailSent(true);
+      toast.success('Email de recuperação enviado! 📧');
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Forgot password screen
+  if (showForgotPassword) {
+    if (resetEmailSent) {
+      return (
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-card">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <CardTitle className="text-green-600">Email Enviado!</CardTitle>
+              <CardDescription className="text-base">
+                Enviamos um link de recuperação para <strong>{forgotEmail}</strong>. 
+                Verifique sua caixa de entrada e spam.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="flex flex-col gap-2">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setResetEmailSent(false);
+                  setForgotEmail('');
+                }}
+              >
+                Voltar para Login
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <Button 
+          variant="ghost" 
+          className="absolute top-4 left-4"
+          onClick={() => setShowForgotPassword(false)}
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Voltar
+        </Button>
+        
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold font-display text-primary mb-2">
+            🔑 Recuperar Senha
+          </h1>
+          <p className="text-muted-foreground">
+            Digite seu email para receber o link de recuperação
+          </p>
+        </div>
+        
+        <Card className="w-full max-w-md shadow-card">
+          <form onSubmit={handleForgotPassword}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="w-5 h-5" />
+                Esqueci minha senha
+              </CardTitle>
+              <CardDescription>
+                Enviaremos um link para você redefinir sua senha
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="forgot-email">Email</Label>
+                <Input 
+                  id="forgot-email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  required
+                />
+              </div>
+            </CardContent>
+            
+            <CardFooter>
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={isLoading}
+              >
+                {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Enviar Link de Recuperação
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
       </div>
     );
   }
@@ -154,6 +284,13 @@ const Auth = () => {
                     required
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Esqueceu sua senha?
+                </button>
               </CardContent>
               <CardFooter>
                 <Button 

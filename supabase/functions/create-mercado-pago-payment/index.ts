@@ -12,6 +12,14 @@ interface PaymentItem {
   unit_price: number;
 }
 
+interface DeliveryAddress {
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  phone?: string;
+}
+
 interface PaymentRequest {
   orderId: string;
   items: PaymentItem[];
@@ -19,6 +27,7 @@ interface PaymentRequest {
     email: string;
     name: string;
   };
+  deliveryAddress?: DeliveryAddress;
 }
 
 serve(async (req) => {
@@ -36,9 +45,31 @@ serve(async (req) => {
       throw new Error("MERCADO_PAGO_ACCESS_TOKEN not configured");
     }
 
-    const { orderId, items, payer } = (await req.json()) as PaymentRequest;
+    const { orderId, items, payer, deliveryAddress } = (await req.json()) as PaymentRequest;
 
     console.log("Creating Mercado Pago payment for order:", orderId);
+
+    // Update order with delivery address if provided
+    if (deliveryAddress && Object.values(deliveryAddress).some(v => v)) {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      
+      const { error: addressError } = await supabase
+        .from('orders')
+        .update({
+          delivery_address: deliveryAddress.address,
+          delivery_city: deliveryAddress.city,
+          delivery_state: deliveryAddress.state,
+          delivery_zip: deliveryAddress.zip,
+          delivery_phone: deliveryAddress.phone,
+        })
+        .eq('id', orderId);
+      
+      if (addressError) {
+        console.error("Error saving delivery address:", addressError);
+      } else {
+        console.log("Delivery address saved for order:", orderId);
+      }
+    }
 
     // Get the function URL for the webhook
     const webhookUrl = `${SUPABASE_URL}/functions/v1/mercado-pago-webhook`;

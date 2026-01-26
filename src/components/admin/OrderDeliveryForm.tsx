@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { MapPin, Phone, Truck } from 'lucide-react';
+import { MapPin, Phone, Truck, Mail, Loader2 } from 'lucide-react';
 
 interface OrderDeliveryData {
   delivery_address: string | null;
@@ -25,7 +25,9 @@ interface OrderDeliveryData {
 interface OrderDeliveryFormProps {
   orderId: string;
   customerName: string | null;
+  customerEmail: string;
   initialData: OrderDeliveryData;
+  orderItems: Array<{ product_name: string; quantity: number | null }>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -33,7 +35,9 @@ interface OrderDeliveryFormProps {
 export function OrderDeliveryForm({
   orderId,
   customerName,
+  customerEmail,
   initialData,
+  orderItems,
   open,
   onOpenChange,
 }: OrderDeliveryFormProps) {
@@ -46,6 +50,9 @@ export function OrderDeliveryForm({
     delivery_phone: initialData.delivery_phone || '',
     tracking_code: initialData.tracking_code || '',
   });
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const previousTrackingCode = initialData.tracking_code;
 
   const updateMutation = useMutation({
     mutationFn: async (data: OrderDeliveryData) => {
@@ -58,10 +65,49 @@ export function OrderDeliveryForm({
         .eq('id', orderId);
 
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-      toast.success('Dados de entrega atualizados!');
+      
+      // Send email if tracking code was added or changed
+      const trackingCodeChanged = data.tracking_code && data.tracking_code !== previousTrackingCode;
+      
+      if (trackingCodeChanged) {
+        setSendingEmail(true);
+        try {
+          const { error: emailError } = await supabase.functions.invoke(
+            'send-tracking-email',
+            {
+              body: {
+                customerEmail,
+                customerName,
+                orderId,
+                trackingCode: data.tracking_code,
+                orderItems: orderItems.map(item => ({
+                  name: item.product_name,
+                  quantity: item.quantity || 1,
+                })),
+              },
+            }
+          );
+
+          if (emailError) {
+            console.error('Error sending tracking email:', emailError);
+            toast.warning('Dados salvos, mas houve erro ao enviar email de rastreio');
+          } else {
+            toast.success('Dados atualizados e email de rastreio enviado!');
+          }
+        } catch (err) {
+          console.error('Error invoking email function:', err);
+          toast.warning('Dados salvos, mas houve erro ao enviar email');
+        } finally {
+          setSendingEmail(false);
+        }
+      } else {
+        toast.success('Dados de entrega atualizados!');
+      }
+      
       onOpenChange(false);
     },
     onError: (error) => {
@@ -77,6 +123,8 @@ export function OrderDeliveryForm({
   const handleChange = (field: keyof OrderDeliveryData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value || null }));
   };
+
+  const isLoading = updateMutation.isPending || sendingEmail;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -161,6 +209,12 @@ export function OrderDeliveryForm({
                 value={formData.tracking_code || ''}
                 onChange={(e) => handleChange('tracking_code', e.target.value)}
               />
+              {formData.tracking_code && formData.tracking_code !== previousTrackingCode && (
+                <p className="text-xs text-primary mt-1 flex items-center gap-1">
+                  <Mail className="w-3 h-3" />
+                  Email será enviado ao cliente com este código
+                </p>
+              )}
             </div>
           </div>
 
@@ -169,11 +223,19 @@ export function OrderDeliveryForm({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={isLoading}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? 'Salvando...' : 'Salvar'}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {sendingEmail ? 'Enviando email...' : 'Salvando...'}
+                </>
+              ) : (
+                'Salvar'
+              )}
             </Button>
           </div>
         </form>

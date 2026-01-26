@@ -72,14 +72,8 @@ const OrderSuccess = () => {
       if (error) throw error;
 
       if (data?.url) {
-        // Open download URL in new tab
-        const link = document.createElement('a');
-        link.href = data.url;
-        link.download = data.fileName || 'download.pdf';
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Open directly in new window - more reliable for downloads
+        window.open(data.url, '_blank');
 
         toast.success(`Download iniciado! Restam ${data.remainingDownloads} downloads.`);
         

@@ -145,7 +145,33 @@ serve(async (req) => {
             
             if (order) {
               console.log(`Order completed for ${order.customer_email}`);
-              // TODO: Send email with download links
+              
+              // Send download/confirmation email automatically
+              try {
+                const emailResponse = await fetch(
+                  `${SUPABASE_URL}/functions/v1/send-download-email`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                    },
+                    body: JSON.stringify({
+                      orderId: orderId,
+                      customerEmail: order.customer_email,
+                      customerName: order.customer_name,
+                    }),
+                  }
+                );
+                
+                if (emailResponse.ok) {
+                  console.log("Download email sent successfully!");
+                } else {
+                  console.error("Failed to send download email:", await emailResponse.text());
+                }
+              } catch (emailError) {
+                console.error("Error sending download email:", emailError);
+              }
             }
           }
         }

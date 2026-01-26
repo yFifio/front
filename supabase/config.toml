@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.send-order-status-email]
 verify_jwt = false
+
+[functions.send-download-email]
+verify_jwt = false
+
+[functions.send-abandoned-cart-email]
+verify_jwt = false

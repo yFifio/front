@@ -101,7 +101,7 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
         
         <div className="text-center max-w-3xl mx-auto">
           <h1 className="text-4xl md:text-6xl font-bold text-primary-foreground mb-6 font-display">
-            🎨 Aventuras para Colorir
+            📚 Biblioteca de Brincar
             <br />
             <span className="text-coloring">Diversão Garantida!</span>
           </h1>

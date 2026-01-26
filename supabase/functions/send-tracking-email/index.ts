@@ -106,7 +106,9 @@ serve(async (req) => {
           <!-- Footer -->
           <div style="text-align: center; margin-top: 24px;">
             <p style="color: #a1a1aa; font-size: 12px; margin: 0;">
-              © ${new Date().getFullYear()} Aventuras Mágicas • Todos os direitos reservados
+              © ${new Date().getFullYear()} Biblioteca de Brincar • Todos os direitos reservados
+            </p>
+          </div>
             </p>
           </div>
         </div>

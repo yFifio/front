@@ -1,3 +1,13 @@
+export interface ProductImage {
+  id: string;
+  product_id: string | null;
+  image_url: string;
+  file_path: string;
+  is_primary: boolean;
+  display_order: number;
+  created_at: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -9,6 +19,7 @@ export interface Product {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  images?: ProductImage[];
 }
 
 export interface CartItem {

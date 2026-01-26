@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { Product } from '@/types';
+import type { Product, ProductImage } from '@/types';
 
 export function useProducts(category?: 'digital' | 'physical') {
   return useQuery({
@@ -8,7 +8,18 @@ export function useProducts(category?: 'digital' | 'physical') {
     queryFn: async () => {
       let query = supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          product_images (
+            id,
+            product_id,
+            image_url,
+            file_path,
+            is_primary,
+            display_order,
+            created_at
+          )
+        `)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
@@ -19,7 +30,14 @@ export function useProducts(category?: 'digital' | 'physical') {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data as Product[];
+      
+      // Map product_images to images field and sort by display_order
+      return (data || []).map((product: any) => ({
+        ...product,
+        images: (product.product_images || []).sort(
+          (a: ProductImage, b: ProductImage) => a.display_order - b.display_order
+        ),
+      })) as Product[];
     },
   });
 }

@@ -1,4 +1,5 @@
-import { ShoppingCart, Star } from 'lucide-react';
+import { useState } from 'react';
+import { ShoppingCart, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,8 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onAddToCart }: ProductCardProps) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
   const categoryConfig = {
     digital: {
       label: '📱 Digital',
@@ -32,12 +35,37 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
     }).format(price);
   };
 
+  // Get sorted images with primary first
+  const images = product.images || [];
+  const sortedImages = [...images].sort((a, b) => {
+    if (a.is_primary && !b.is_primary) return -1;
+    if (!a.is_primary && b.is_primary) return 1;
+    return a.display_order - b.display_order;
+  });
+
+  const hasMultipleImages = sortedImages.length > 1;
+  const currentImage = sortedImages[currentImageIndex]?.image_url || product.image_url;
+
+  const handlePrevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => 
+      prev === 0 ? sortedImages.length - 1 : prev - 1
+    );
+  };
+
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => 
+      prev === sortedImages.length - 1 ? 0 : prev + 1
+    );
+  };
+
   return (
     <Card className="group overflow-hidden border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-playful hover:-translate-y-1">
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-        {product.image_url ? (
+        {currentImage ? (
           <img 
-            src={product.image_url} 
+            src={currentImage} 
             alt={product.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
@@ -45,6 +73,46 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           <div className="w-full h-full flex items-center justify-center">
             <span className="text-6xl">{product.category === 'digital' ? '📱' : '📦'}</span>
           </div>
+        )}
+        
+        {/* Navigation Arrows */}
+        {hasMultipleImages && (
+          <>
+            <Button
+              variant="secondary"
+              size="icon"
+              className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+              onClick={handlePrevImage}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="secondary"
+              size="icon"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+              onClick={handleNextImage}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            
+            {/* Image Dots Indicator */}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+              {sortedImages.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(index);
+                  }}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    index === currentImageIndex 
+                      ? 'bg-primary' 
+                      : 'bg-background/60 hover:bg-background'
+                  }`}
+                />
+              ))}
+            </div>
+          </>
         )}
         
         <Badge className={`absolute top-3 left-3 ${config.bgClass} ${config.textClass} font-bold`}>

@@ -188,25 +188,37 @@ serve(async (req) => {
       if (status === "approved") {
         console.log("Payment approved! Updating order and creating downloads...");
 
+        // Get order items to check if all products are digital
+        const { data: orderItems, error: itemsError } = await supabase
+          .from("order_items")
+          .select("product_id, products:product_id(category)")
+          .eq("order_id", orderId);
+
+        if (itemsError) {
+          console.error("Error fetching order items:", itemsError);
+        }
+
+        // Check if all products in the order are digital
+        const allDigital = orderItems?.every(
+          (item: any) => item.products?.category === "digital"
+        ) ?? false;
+
+        // If all products are digital, mark as delivered; otherwise just paid
+        const newStatus = allDigital ? "delivered" : "paid";
+        console.log(`Order contains ${allDigital ? "only digital" : "physical"} products. Setting status to: ${newStatus}`);
+
         // Update order status
         const { error: orderError } = await supabase
           .from("orders")
-          .update({ status: "paid", updated_at: new Date().toISOString() })
+          .update({ status: newStatus, updated_at: new Date().toISOString() })
           .eq("id", orderId);
 
         if (orderError) {
           console.error("Error updating order:", orderError);
         }
 
-        // Get order items
-        const { data: orderItems, error: itemsError } = await supabase
-          .from("order_items")
-          .select("product_id")
-          .eq("order_id", orderId);
-
-        if (itemsError) {
-          console.error("Error fetching order items:", itemsError);
-        } else if (orderItems) {
+        // Create download tokens for digital products
+        if (!itemsError && orderItems) {
           // Create download tokens for each product
           const downloads = orderItems.map((item) => ({
             order_id: orderId,

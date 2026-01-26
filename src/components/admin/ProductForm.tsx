@@ -143,60 +143,87 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       }
     },
     onSuccess: async (productId) => {
-      // For new products, save the temporary images to the database
-      if (!isEditing && productImages.length > 0) {
+      // For new products, save the temporary images and files to the database
+      if (!isEditing) {
         try {
-          // Move images from temp folder and save to database
-          for (let i = 0; i < productImages.length; i++) {
-            const img = productImages[i];
-            
-            // If image is in temp folder, move it
-            if (img.file_path.startsWith('temp/')) {
-              const fileName = img.file_path.split('/').pop();
-              const newPath = `${productId}/${fileName}`;
+          // Save temporary images
+          if (productImages.length > 0) {
+            for (let i = 0; i < productImages.length; i++) {
+              const img = productImages[i];
               
-              // Copy to new location
-              const { error: copyError } = await supabase.storage
-                .from('product-images')
-                .copy(img.file_path, newPath);
-              
-              if (copyError) {
-                console.error('Error copying image:', copyError);
-                continue;
-              }
-              
-              // Get new public URL
-              const { data: { publicUrl } } = supabase.storage
-                .from('product-images')
-                .getPublicUrl(newPath);
-              
-              // Delete old temp file
-              await supabase.storage
-                .from('product-images')
-                .remove([img.file_path]);
-              
-              // Insert into database
-              await supabase
-                .from('product_images')
-                .insert({
-                  product_id: productId,
-                  image_url: publicUrl,
-                  file_path: newPath,
-                  is_primary: img.is_primary,
-                  display_order: i,
-                });
-
-              // Update product's main image_url if this is primary
-              if (img.is_primary) {
+              if (img.file_path.startsWith('temp/')) {
+                const fileName = img.file_path.split('/').pop();
+                const newPath = `${productId}/${fileName}`;
+                
+                const { error: copyError } = await supabase.storage
+                  .from('product-images')
+                  .copy(img.file_path, newPath);
+                
+                if (copyError) {
+                  console.error('Error copying image:', copyError);
+                  continue;
+                }
+                
+                const { data: { publicUrl } } = supabase.storage
+                  .from('product-images')
+                  .getPublicUrl(newPath);
+                
+                await supabase.storage
+                  .from('product-images')
+                  .remove([img.file_path]);
+                
                 await supabase
-                  .from('products')
-                  .update({ image_url: publicUrl })
-                  .eq('id', productId);
+                  .from('product_images')
+                  .insert({
+                    product_id: productId,
+                    image_url: publicUrl,
+                    file_path: newPath,
+                    is_primary: img.is_primary,
+                    display_order: i,
+                  });
+
+                if (img.is_primary) {
+                  await supabase
+                    .from('products')
+                    .update({ image_url: publicUrl })
+                    .eq('id', productId);
+                }
+              }
+            }
+          }
+
+          // Save temporary digital files (PDFs)
+          if (digitalFiles.length > 0) {
+            for (const file of digitalFiles) {
+              if (file.file_path.startsWith('temp/')) {
+                const fileName = file.file_path.split('/').pop();
+                const newPath = `${productId}/${fileName}`;
+                
+                const { error: copyError } = await supabase.storage
+                  .from('digital-products')
+                  .copy(file.file_path, newPath);
+                
+                if (copyError) {
+                  console.error('Error copying file:', copyError);
+                  continue;
+                }
+                
+                await supabase.storage
+                  .from('digital-products')
+                  .remove([file.file_path]);
+                
+                await supabase
+                  .from('digital_files')
+                  .insert({
+                    product_id: productId,
+                    file_name: file.file_name,
+                    file_path: newPath,
+                  });
               }
             }
           }
         } catch (error) {
-          console.error('Error saving product images:', error);
+          console.error('Error saving product files:', error);
         }
       }
 

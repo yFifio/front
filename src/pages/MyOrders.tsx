@@ -125,15 +125,13 @@ const MyOrders = () => {
       if (error) throw error;
 
       if (data?.url) {
-        const link = document.createElement('a');
-        link.href = data.url;
-        link.download = data.fileName || 'download.pdf';
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        window.open(data.url, '_blank');
 
-        toast.success(`Download iniciado! Restam ${data.remainingDownloads} downloads.`);
+        toast.success(
+          data.remainingDownloads == null
+            ? 'Download iniciado! Downloads ilimitados por 1 mês.'
+            : `Download iniciado! Restam ${data.remainingDownloads} downloads.`
+        );
         fetchUserOrders();
       } else if (data?.error) {
         toast.error(data.error);
@@ -204,7 +202,8 @@ const MyOrders = () => {
   const digitalOrders = orders.filter(o => hasDigitalItems(o) && (o.status === 'paid' || o.status === 'delivered'));
 
   const getRemainingDownloads = (download: DownloadItem) => {
-    const max = download.max_downloads || 5;
+    if (download.max_downloads == null) return null;
+    const max = download.max_downloads;
     const used = download.download_count || 0;
     return max - used;
   };

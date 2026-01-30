@@ -184,7 +184,7 @@ serve(async (req) => {
         }
       }
 
-      // If payment is approved, update order and create download tokens
+       // If payment is approved, update order and create download tokens
       if (status === "approved") {
         console.log("Payment approved! Updating order and creating downloads...");
 
@@ -198,10 +198,11 @@ serve(async (req) => {
           console.error("Error fetching order items:", itemsError);
         }
 
-        // Check if all products in the order are digital
-        const allDigital = orderItems?.every(
-          (item: any) => item.products?.category === "digital"
-        ) ?? false;
+         const items = orderItems ?? [];
+         const digitalItems = items.filter((item: any) => item.products?.category === "digital");
+
+         // Check if all products in the order are digital
+         const allDigital = items.length > 0 && digitalItems.length === items.length;
 
         // If all products are digital, mark as delivered; otherwise just paid
         const newStatus = allDigital ? "delivered" : "paid";
@@ -217,66 +218,88 @@ serve(async (req) => {
           console.error("Error updating order:", orderError);
         }
 
-        // Create download tokens for digital products
-        if (!itemsError && orderItems) {
-          // Create download tokens for each product
-          const downloads = orderItems.map((item) => ({
-            order_id: orderId,
-            product_id: item.product_id,
-            download_token: crypto.randomUUID(),
-            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-            max_downloads: 5,
-          }));
+         // Create download tokens for digital products (idempotent)
+         if (!itemsError && digitalItems.length > 0) {
+           const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // ~1 month
 
-          const { error: downloadError } = await supabase
-            .from("downloads")
-            .insert(downloads);
+           const digitalProductIds = digitalItems.map((i: any) => i.product_id).filter(Boolean);
 
-          if (downloadError) {
-            console.error("Error creating downloads:", downloadError);
-          } else {
-            console.log("Downloads created successfully!");
-            
-            // Get order email for sending notification
-            const { data: order } = await supabase
-              .from("orders")
-              .select("customer_email, customer_name")
-              .eq("id", orderId)
-              .single();
-            
-            if (order) {
-              console.log(`Order completed for ${order.customer_email}`);
-              
-              // Send download/confirmation email automatically
-              try {
-                const emailResponse = await fetch(
-                  `${SUPABASE_URL}/functions/v1/send-download-email`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-                    },
-                    body: JSON.stringify({
-                      orderId: orderId,
-                      customerEmail: order.customer_email,
-                      customerName: order.customer_name,
-                    }),
+           // Avoid duplicates on webhook retries
+           const { data: existingDownloads, error: existingError } = await supabase
+             .from("downloads")
+             .select("id, product_id")
+             .eq("order_id", orderId)
+             .in("product_id", digitalProductIds);
+
+           if (existingError) {
+             console.error("Error checking existing downloads:", existingError);
+           }
+
+           const existingSet = new Set((existingDownloads ?? []).map((d: any) => d.product_id));
+           const downloadsToCreate = digitalProductIds
+             .filter((pid: string) => !existingSet.has(pid))
+             .map((productId: string) => ({
+               order_id: orderId,
+               product_id: productId,
+               download_token: crypto.randomUUID(),
+               expires_at: expiresAt,
+               max_downloads: null, // unlimited within the validity window
+               download_count: 0,
+             }));
+
+           if (downloadsToCreate.length === 0) {
+             console.log("Downloads already exist for this order (webhook retry). Skipping creation.");
+           } else {
+             const { error: downloadError } = await supabase
+               .from("downloads")
+               .insert(downloadsToCreate);
+
+              if (downloadError) {
+                console.error("Error creating downloads:", downloadError);
+              } else {
+                console.log("Downloads created successfully!", { count: downloadsToCreate.length });
+
+                // Get order email for sending notification
+                const { data: order } = await supabase
+                  .from("orders")
+                  .select("customer_email, customer_name")
+                  .eq("id", orderId)
+                  .single();
+
+                if (order) {
+                  console.log(`Order completed for ${order.customer_email}`);
+
+                  // Send download/confirmation email automatically
+                  try {
+                    const emailResponse = await fetch(
+                      `${SUPABASE_URL}/functions/v1/send-download-email`,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                        },
+                        body: JSON.stringify({
+                          orderId: orderId,
+                          customerEmail: order.customer_email,
+                          customerName: order.customer_name,
+                        }),
+                      }
+                    );
+
+                    if (emailResponse.ok) {
+                      console.log("Download email sent successfully!");
+                    } else {
+                      console.error("Failed to send download email:", await emailResponse.text());
+                    }
+                  } catch (emailError) {
+                    console.error("Error sending download email:", emailError);
                   }
-                );
-                
-                if (emailResponse.ok) {
-                  console.log("Download email sent successfully!");
-                } else {
-                  console.error("Failed to send download email:", await emailResponse.text());
                 }
-              } catch (emailError) {
-                console.error("Error sending download email:", emailError);
               }
             }
           }
         }
-      }
     }
 
     return new Response("OK", { status: 200 });

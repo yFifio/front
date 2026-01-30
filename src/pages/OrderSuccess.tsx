@@ -32,28 +32,47 @@ const OrderSuccess = () => {
   useEffect(() => {
     clearCart();
     
-    if (orderId) {
-      const fetchDownloads = async () => {
-        const { data } = await supabase
-          .from('downloads')
-          .select('*, products:product_id(name, category)')
-          .eq('order_id', orderId);
-        
-        if (data) {
-          // Filter only digital products
-          const digitalDownloads = data.filter(
-            (d: any) => d.products?.category === 'digital'
-          ) as DownloadItem[];
-          setDownloads(digitalDownloads);
-        }
-        setIsLoading(false);
-      };
-      
-      // Wait a bit for webhook to process
-      setTimeout(fetchDownloads, 2000);
-    } else {
+    if (!orderId) {
       setIsLoading(false);
+      return;
     }
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 20; // ~40s
+
+    const fetchDownloads = async () => {
+      attempts += 1;
+
+      const { data, error } = await supabase
+        .from('downloads')
+        .select('*, products:product_id(name, category)')
+        .eq('order_id', orderId);
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error('Error fetching downloads:', error);
+      }
+
+      const digitalDownloads = (data || []).filter(
+        (d: any) => d.products?.category === 'digital'
+      ) as DownloadItem[];
+
+      if (digitalDownloads.length > 0 || attempts >= maxAttempts) {
+        setDownloads(digitalDownloads);
+        setIsLoading(false);
+        return;
+      }
+    };
+
+    const interval = setInterval(fetchDownloads, 2000);
+    fetchDownloads();
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [orderId, clearCart]);
 
   const handleDownload = async (download: DownloadItem) => {
@@ -75,7 +94,11 @@ const OrderSuccess = () => {
         // Open directly in new window - more reliable for downloads
         window.open(data.url, '_blank');
 
-        toast.success(`Download iniciado! Restam ${data.remainingDownloads} downloads.`);
+        toast.success(
+          data.remainingDownloads == null
+            ? 'Download iniciado! Downloads ilimitados por 1 mês.'
+            : `Download iniciado! Restam ${data.remainingDownloads} downloads.`
+        );
         
         // Update local download count
         setDownloads(prev => 
@@ -97,7 +120,8 @@ const OrderSuccess = () => {
   };
 
   const getRemainingDownloads = (download: DownloadItem) => {
-    const max = download.max_downloads || 5;
+    if (download.max_downloads == null) return null;
+    const max = download.max_downloads;
     const used = download.download_count || 0;
     return max - used;
   };
@@ -127,7 +151,7 @@ const OrderSuccess = () => {
               {downloads.map((download) => {
                 const remaining = getRemainingDownloads(download);
                 const expired = isExpired(download);
-                const exhausted = remaining <= 0;
+                const exhausted = remaining != null ? remaining <= 0 : false;
                 const disabled = expired || exhausted;
 
                 return (
@@ -146,7 +170,9 @@ const OrderSuccess = () => {
                           ) : exhausted ? (
                             <span className="text-destructive">Downloads esgotados</span>
                           ) : (
-                            `${remaining} downloads restantes`
+                            remaining == null
+                              ? 'Downloads ilimitados'
+                              : `${remaining} downloads restantes`
                           )}
                         </p>
                       </div>

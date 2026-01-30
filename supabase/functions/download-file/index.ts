@@ -16,7 +16,9 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const { token, fileId } = await req.json();
+    const body = await req.json();
+    const token = body?.token ?? body?.downloadToken;
+    const fileId = body?.fileId;
 
     if (!token) {
       return new Response(JSON.stringify({ error: "Token de download não fornecido" }), {
@@ -45,7 +47,7 @@ serve(async (req) => {
     }
 
     // Check if order is paid
-    if (download.orders?.status !== "paid") {
+    if (download.orders?.status !== "paid" && download.orders?.status !== "delivered") {
       return new Response(JSON.stringify({ error: "Pedido ainda não foi confirmado" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 403,
@@ -60,8 +62,11 @@ serve(async (req) => {
       });
     }
 
-    // Check download count
-    if (download.download_count >= download.max_downloads) {
+    const downloadCount = Number(download.download_count ?? 0);
+    const maxDownloads = download.max_downloads as number | null;
+
+    // Check download count (unlimited when max_downloads is null)
+    if (typeof maxDownloads === "number" && downloadCount >= maxDownloads) {
       return new Response(JSON.stringify({ error: "Número máximo de downloads atingido" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 429,
@@ -111,17 +116,18 @@ serve(async (req) => {
     await supabase
       .from("downloads")
       .update({
-        download_count: download.download_count + 1,
+        download_count: downloadCount + 1,
       })
       .eq("id", download.id);
 
-    console.log("Download successful, count:", download.download_count + 1);
+    console.log("Download successful, count:", downloadCount + 1);
 
     return new Response(
       JSON.stringify({
         url: signedData.signedUrl,
         fileName: file.file_name,
-        remainingDownloads: download.max_downloads - download.download_count - 1,
+        remainingDownloads:
+          typeof maxDownloads === "number" ? Math.max(0, maxDownloads - (downloadCount + 1)) : null,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
     );

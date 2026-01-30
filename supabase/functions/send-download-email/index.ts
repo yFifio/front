@@ -97,7 +97,7 @@ serve(async (req) => {
           const expiresAt = download 
             ? new Date(download.expires_at).toLocaleDateString('pt-BR')
             : "N/A";
-          const maxDownloads = download?.max_downloads || 5;
+           const maxDownloadsLabel = download?.max_downloads == null ? "Ilimitado" : String(download.max_downloads);
           
           return `
             <div style="background-color: #ffffff; border-radius: 8px; padding: 16px; margin-bottom: 12px; border: 1px solid #a7f3d0;">
@@ -110,7 +110,7 @@ serve(async (req) => {
                 ⬇️ Baixar Agora
               </a>
               <p style="color: #9ca3af; font-size: 11px; margin: 10px 0 0 0;">
-                Válido até ${expiresAt} • Máx. ${maxDownloads} downloads
+                 Válido até ${expiresAt} • Downloads: ${maxDownloadsLabel}
               </p>
             </div>
           `;

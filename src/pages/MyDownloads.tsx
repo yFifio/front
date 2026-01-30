@@ -13,8 +13,8 @@ interface DownloadItem {
   id: string;
   download_token: string;
   expires_at: string;
-  download_count: number;
-  max_downloads: number;
+  download_count: number | null;
+  max_downloads: number | null;
   created_at: string;
   product: {
     id: string;
@@ -99,7 +99,10 @@ const MyDownloads = () => {
       return;
     }
 
-    if (download.download_count >= download.max_downloads) {
+    const used = download.download_count ?? 0;
+    const hasLimit = typeof download.max_downloads === "number";
+
+    if (hasLimit && used >= (download.max_downloads as number)) {
       toast({
         title: "Limite atingido",
         description: "Você atingiu o limite máximo de downloads.",
@@ -123,9 +126,9 @@ const MyDownloads = () => {
       }
 
       const response = await supabase.functions.invoke("download-file", {
-        body: { 
-          downloadToken: download.download_token,
-          productId: download.product.id
+        body: {
+          token: download.download_token,
+          fileId: null,
         },
       });
 
@@ -142,7 +145,7 @@ const MyDownloads = () => {
       setDownloads(prev => 
         prev.map(d => 
           d.id === download.id 
-            ? { ...d, download_count: d.download_count + 1 }
+            ? { ...d, download_count: (d.download_count ?? 0) + 1 }
             : d
         )
       );
@@ -168,7 +171,8 @@ const MyDownloads = () => {
   };
 
   const isLimitReached = (download: DownloadItem) => {
-    return download.download_count >= download.max_downloads;
+    if (download.max_downloads == null) return false;
+    return (download.download_count ?? 0) >= download.max_downloads;
   };
 
   if (loading) {
@@ -231,7 +235,10 @@ const MyDownloads = () => {
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-muted-foreground space-y-1">
                       <p>
-                        Downloads: {download.download_count} / {download.max_downloads}
+                        Downloads:{" "}
+                        {download.max_downloads == null
+                          ? `${download.download_count ?? 0} / Ilimitado`
+                          : `${download.download_count ?? 0} / ${download.max_downloads}`}
                       </p>
                       <p>
                         Expira em: {format(new Date(download.expires_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}

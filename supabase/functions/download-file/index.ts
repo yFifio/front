@@ -54,8 +54,12 @@ serve(async (req) => {
       });
     }
 
-    // Check if token is expired
-    if (new Date(download.expires_at) < new Date()) {
+    // Check if token is expired (consider > 50 years from now as "never expires")
+    const expiresAt = new Date(download.expires_at);
+    const fiftyYearsFromNow = new Date();
+    fiftyYearsFromNow.setFullYear(fiftyYearsFromNow.getFullYear() + 50);
+    
+    if (expiresAt < fiftyYearsFromNow && expiresAt < new Date()) {
       return new Response(JSON.stringify({ error: "Link de download expirado" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 410,

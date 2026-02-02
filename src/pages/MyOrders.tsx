@@ -129,7 +129,7 @@ const MyOrders = () => {
 
         toast.success(
           data.remainingDownloads == null
-            ? 'Download iniciado! Downloads ilimitados por 1 mês.'
+            ? 'Download iniciado! Downloads ilimitados.'
             : `Download iniciado! Restam ${data.remainingDownloads} downloads.`
         );
         fetchUserOrders();
@@ -209,7 +209,12 @@ const MyOrders = () => {
   };
 
   const isExpired = (download: DownloadItem) => {
-    return new Date(download.expires_at) < new Date();
+    const expDate = new Date(download.expires_at);
+    const fiftyYearsFromNow = new Date();
+    fiftyYearsFromNow.setFullYear(fiftyYearsFromNow.getFullYear() + 50);
+    // If expiration is > 50 years from now, treat as "never expires"
+    if (expDate > fiftyYearsFromNow) return false;
+    return expDate < new Date();
   };
 
   if (authLoading || isLoading) {
@@ -585,7 +590,7 @@ const MyOrders = () => {
                             const download = orderDownloads.find(d => d.product_id === item.product_id);
                             const remaining = download ? getRemainingDownloads(download) : 0;
                             const expired = download ? isExpired(download) : false;
-                            const exhausted = remaining <= 0;
+                            const exhausted = remaining != null ? remaining <= 0 : false;
                             const disabled = !download || expired || exhausted;
 
                             return (
@@ -615,7 +620,9 @@ const MyOrders = () => {
                                     ) : exhausted ? (
                                       <span className="text-destructive">Downloads esgotados</span>
                                     ) : (
-                                      `${remaining} downloads restantes`
+                                      remaining == null
+                                        ? 'Downloads ilimitados'
+                                        : `${remaining} downloads restantes`
                                     )}
                                   </p>
                                 </div>

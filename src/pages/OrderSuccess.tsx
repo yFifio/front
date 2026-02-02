@@ -96,7 +96,7 @@ const OrderSuccess = () => {
 
         toast.success(
           data.remainingDownloads == null
-            ? 'Download iniciado! Downloads ilimitados por 1 mês.'
+            ? 'Download iniciado! Downloads ilimitados.'
             : `Download iniciado! Restam ${data.remainingDownloads} downloads.`
         );
         
@@ -127,6 +127,12 @@ const OrderSuccess = () => {
   };
 
   const isExpired = (download: DownloadItem) => {
+    // Consider downloads with expiration > 50 years from now as "never expires"
+    const fiftyYearsFromNow = new Date();
+    fiftyYearsFromNow.setFullYear(fiftyYearsFromNow.getFullYear() + 50);
+    if (new Date(download.expires_at) > fiftyYearsFromNow) {
+      return false; // Never expires
+    }
     return new Date(download.expires_at) < new Date();
   };
 

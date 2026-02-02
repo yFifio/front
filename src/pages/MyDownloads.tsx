@@ -87,10 +87,13 @@ const MyDownloads = () => {
   const handleDownload = async (download: DownloadItem) => {
     if (!download.product) return;
 
-    const now = new Date();
+    // Check if expired (considering never-expiring downloads)
     const expiresAt = new Date(download.expires_at);
+    const fiftyYearsFromNow = new Date();
+    fiftyYearsFromNow.setFullYear(fiftyYearsFromNow.getFullYear() + 50);
+    const neverExp = expiresAt > fiftyYearsFromNow;
     
-    if (now > expiresAt) {
+    if (!neverExp && new Date() > expiresAt) {
       toast({
         title: "Link expirado",
         description: "O link de download expirou.",
@@ -167,12 +170,24 @@ const MyDownloads = () => {
   };
 
   const isExpired = (expiresAt: string) => {
-    return new Date() > new Date(expiresAt);
+    const expDate = new Date(expiresAt);
+    const fiftyYearsFromNow = new Date();
+    fiftyYearsFromNow.setFullYear(fiftyYearsFromNow.getFullYear() + 50);
+    // If expiration is > 50 years from now, it never expires
+    if (expDate > fiftyYearsFromNow) return false;
+    return new Date() > expDate;
   };
 
   const isLimitReached = (download: DownloadItem) => {
     if (download.max_downloads == null) return false;
     return (download.download_count ?? 0) >= download.max_downloads;
+  };
+
+  const neverExpires = (expiresAt: string) => {
+    const expDate = new Date(expiresAt);
+    const fiftyYearsFromNow = new Date();
+    fiftyYearsFromNow.setFullYear(fiftyYearsFromNow.getFullYear() + 50);
+    return expDate > fiftyYearsFromNow;
   };
 
   if (loading) {
@@ -237,11 +252,13 @@ const MyDownloads = () => {
                       <p>
                         Downloads:{" "}
                         {download.max_downloads == null
-                          ? `${download.download_count ?? 0} / Ilimitado`
+                          ? `${download.download_count ?? 0} (Ilimitado)`
                           : `${download.download_count ?? 0} / ${download.max_downloads}`}
                       </p>
                       <p>
-                        Expira em: {format(new Date(download.expires_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                        {neverExpires(download.expires_at) 
+                          ? "Sem expiração" 
+                          : `Expira em: ${format(new Date(download.expires_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}`}
                       </p>
                     </div>
                     <Button

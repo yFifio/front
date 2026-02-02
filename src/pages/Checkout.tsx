@@ -46,6 +46,28 @@ const Checkout = () => {
     }).format(price);
   };
 
+  // Require login to checkout
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <span className="text-6xl mb-4">🔐</span>
+        <h1 className="text-2xl font-bold font-display mb-2">Login necessário</h1>
+        <p className="text-muted-foreground mb-6 text-center">
+          Você precisa estar logado para finalizar sua compra.
+        </p>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => navigate('/')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar
+          </Button>
+          <Button onClick={() => navigate('/auth')}>
+            Fazer Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">

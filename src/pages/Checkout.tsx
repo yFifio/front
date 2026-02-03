@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Loader2, ShoppingBag, CreditCard } from 'lucide-react';
 import { z } from 'zod';
 import DeliveryAddressForm from '@/components/checkout/DeliveryAddressForm';
+import { PopupManager } from '@/components/store/PopupManager';
 
 const checkoutSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -319,6 +320,8 @@ const Checkout = () => {
           </Card>
         </div>
       </main>
+      
+      <PopupManager type="funnel" />
     </div>
   );
 };

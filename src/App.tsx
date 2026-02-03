@@ -15,6 +15,7 @@ import { AdminLayout } from "./components/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
 import Products from "./pages/admin/Products";
 import Orders from "./pages/admin/Orders";
+import Popups from "./pages/admin/Popups";
 import { useAbandonedCartReminder } from "./hooks/useAbandonedCartReminder";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const AppContent = () => {
         <Route index element={<Dashboard />} />
         <Route path="products" element={<Products />} />
         <Route path="orders" element={<Orders />} />
+        <Route path="popups" element={<Popups />} />
       </Route>
       
       <Route path="*" element={<NotFound />} />

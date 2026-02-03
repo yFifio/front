@@ -11,7 +11,8 @@ import {
   Menu, 
   X,
   Loader2,
-  Home
+  Home,
+  Megaphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +20,7 @@ const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/products', label: 'Produtos', icon: Package },
   { href: '/admin/orders', label: 'Pedidos', icon: ShoppingCart },
+  { href: '/admin/popups', label: 'Popups', icon: Megaphone },
 ];
 
 export function AdminLayout() {

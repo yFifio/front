@@ -10,7 +10,6 @@ import type { User } from '@/hooks/useAuth';
 
 interface UpdateUserPayload {
   nome: string;
-  cpf: string;
   isAdmin: boolean;
   senha?: string;
 }
@@ -22,7 +21,6 @@ interface UserFormProps {
 
 export function UserForm({ user, onSuccess }: UserFormProps) {
   const [nome, setNome] = useState(user.nome || '');
-  const [cpf, setCpf] = useState(user.cpf || '');
   const [password, setPassword] = useState('');
   const [isAdmin, setIsAdmin] = useState(!!user.isAdmin);
   const mutation = useMutation({
@@ -43,7 +41,7 @@ export function UserForm({ user, onSuccess }: UserFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const payload: UpdateUserPayload = { nome, cpf, isAdmin };
+    const payload: UpdateUserPayload = { nome, isAdmin };
     if (password.trim()) payload.senha = password;
     mutation.mutate(payload);
   };
@@ -60,7 +58,7 @@ export function UserForm({ user, onSuccess }: UserFormProps) {
       </div>
       <div className="space-y-2">
         <Label>CPF</Label>
-        <Input value={cpf} onChange={(e) => setCpf(e.target.value.replace(/\D/g, ''))} maxLength={11} required />
+        <Input value={user.cpf || ''} disabled className="bg-muted" />
       </div>
       <div className="space-y-2">
         <Label>Nova senha</Label>

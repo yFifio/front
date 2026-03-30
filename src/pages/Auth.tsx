@@ -78,7 +78,7 @@ const Auth = () => {
       const result = await signIn(loginEmail, loginPassword);
       
       if (result.error) {
-         throw new Error('Credenciais inválidas');
+        throw new Error(result.error.message || 'Erro ao fazer login');
       }
 
       toast.success('Login realizado com sucesso! 🎉');

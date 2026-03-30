@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, Package } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Search } from 'lucide-react';
 import { ProductForm } from '@/components/admin/ProductForm';
 import { apiRequest } from '@/lib/api';
 import type { Product } from '@/types';
@@ -17,6 +18,7 @@ export default function Products() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { data: responseData, isLoading } = useQuery({
     queryKey: ['admin-products'],
@@ -25,9 +27,28 @@ export default function Products() {
     },
   });
 
+  const { data: categoriesResponse } = useQuery({
+    queryKey: ['admin-categories-for-products'],
+    queryFn: async () => {
+      return await apiRequest('/categories?limit=1000&offset=0');
+    },
+  });
+
   const products = Array.isArray(responseData) 
     ? responseData 
     : (responseData?.data || responseData?.rows || responseData?.products || []);
+
+  const categories = Array.isArray(categoriesResponse)
+    ? categoriesResponse
+    : (categoriesResponse?.data || categoriesResponse?.rows || []);
+
+  const categoryNameById = new Map<number, string>(
+    categories.map((cat: { id: number; name: string }) => [Number(cat.id), cat.name])
+  );
+
+  const filteredProducts = products.filter((p: Product) =>
+    !searchTerm.trim() || p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const deleteMutation = useMutation({
     mutationFn: async (productId: string) => {
@@ -88,6 +109,16 @@ export default function Products() {
         </Button>
       </div>
 
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <Input
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Buscar produto..."
+          className="pl-9"
+        />
+      </div>
+
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
@@ -100,9 +131,36 @@ export default function Products() {
             </Card>
           ))}
         </div>
-      ) : products.length > 0 ? (
+      ) : products.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <Package className="w-12 h-12 text-muted-foreground mb-4" />
+            <h3 className="font-bold text-lg mb-2">Nenhum produto cadastrado</h3>
+            <Button onClick={() => setIsFormOpen(true)} className="mt-4">
+              <Plus className="w-4 h-4 mr-2" />Criar Produto
+            </Button>
+          </CardContent>
+        </Card>
+      ) : filteredProducts.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <Search className="w-12 h-12 text-muted-foreground mb-4" />
+            <h3 className="font-bold text-lg mb-2">Nenhum resultado para "{searchTerm}"</h3>
+            <p className="text-sm text-muted-foreground">Tente outro termo de busca.</p>
+          </CardContent>
+        </Card>
+      ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {products.map((product: Product) => (
+          {filteredProducts.map((product: Product) => {
+            const categoryName = categoryNameById.get(
+              Number(
+                (product as Product & { category_id?: number | null }).categoryId ??
+                (product as Product & { category_id?: number | null }).category_id ??
+                0
+              )
+            ) || 'Sem categoria';
+
+            return (
             <Card key={product.id} className="overflow-hidden">
               <div className="aspect-video bg-muted relative">
                 {product.image_url ? (
@@ -123,6 +181,16 @@ export default function Products() {
               </div>
               <CardContent className="p-4">
                 <h3 className="font-bold text-lg line-clamp-1">{product.name}</h3>
+                <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
+                  Categoria: {categoryName}
+                </p>
+                <div className="mt-2">
+                  {categoryName === 'Sem categoria' ? (
+                    <Badge variant="destructive">⚠️ {categoryName}</Badge>
+                  ) : (
+                    <Badge variant="outline">🏷️ {categoryName}</Badge>
+                  )}
+                </div>
                 <div className="flex items-center justify-between mt-4">
                   <span className="font-bold text-primary text-lg">{formatPrice(product.price)}</span>
                   <div className="flex gap-2">
@@ -136,18 +204,8 @@ export default function Products() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )})}
         </div>
-      ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Package className="w-12 h-12 text-muted-foreground mb-4" />
-            <h3 className="font-bold text-lg mb-2">Nenhum produto cadastrado</h3>
-            <Button onClick={() => setIsFormOpen(true)} className="mt-4">
-              <Plus className="w-4 h-4 mr-2" />Criar Produto
-            </Button>
-          </CardContent>
-        </Card>
       )}
 
       <Dialog open={isFormOpen} onOpenChange={handleCloseForm}>

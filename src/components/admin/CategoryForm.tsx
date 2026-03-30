@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,10 @@ export function CategoryForm({
   const queryClient = useQueryClient();
   const isEditing = !!item;
   const [name, setName] = useState(item?.name ?? '');
+
+  useEffect(() => {
+    setName(item?.name ?? '');
+  }, [item]);
 
   const mutation = useMutation({
     mutationFn: async (data: { name: string }) => {

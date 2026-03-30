@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { ShoppingCart, Star, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -77,15 +78,21 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
 
   return (
     <>
-      <Card 
-        className={`group overflow-hidden border-2 transition-all duration-300 hover:shadow-playful hover:-translate-y-1 cursor-pointer ${
-          product.is_featured 
-            ? 'border-accent ring-2 ring-accent/30' 
-            : 'border-border hover:border-primary/50'
-        }`}
-        onClick={handleCardClick}
+      <motion.div
+        whileHover={{ y: -8, rotateX: 2.5, rotateY: -2.5, scale: 1.015 }}
+        transition={{ type: 'spring', stiffness: 230, damping: 18 }}
+        style={{ transformStyle: 'preserve-3d' }}
       >
+        <Card 
+          className={`group glass-panel psychedelic-border overflow-hidden border-2 transition-all duration-300 hover:shadow-playful cursor-pointer ${
+            product.is_featured 
+              ? 'border-accent ring-2 ring-accent/30' 
+              : 'border-border/60 hover:border-primary/50'
+          }`}
+          onClick={handleCardClick}
+        >
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.22),transparent_30%),linear-gradient(135deg,rgba(217,70,239,0.12),transparent_30%,rgba(34,211,238,0.12))] opacity-80" />
         {currentImage ? (
           <img 
             src={currentImage} 
@@ -172,6 +179,11 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             {product.description}
           </p>
         )}
+
+        <p className="text-xs md:text-sm text-muted-foreground mb-3">
+          <span className="font-semibold text-foreground">Categoria:</span>{' '}
+          {product.book_category?.trim() || 'Sem categoria'}
+        </p>
         
         <div className="flex items-center gap-1 mb-2">
           {[1, 2, 3, 4, 5].map((star) => (
@@ -211,7 +223,8 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           Adicionar
         </Button>
       </CardFooter>
-    </Card>
+        </Card>
+      </motion.div>
 
     <ProductDetailModal
       product={product}

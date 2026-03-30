@@ -84,7 +84,7 @@ export default function OperationsListPage() {
           <p className="text-muted-foreground">Listagem com paginação (CRUD por rotas)</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/admin')}>
+          <Button variant="outline" onClick={() => navigate('/admin/operations')}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
           </Button>
           <Button onClick={() => navigate(`/admin/operations/${resourceType}/new`)}>

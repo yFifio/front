@@ -180,6 +180,11 @@ export function ProductDetailModal({
               )}
             </div>
 
+            <p className="text-sm text-muted-foreground mb-3">
+              <span className="font-semibold text-foreground">Categoria do livro:</span>{' '}
+              {product.book_category?.trim() || 'Sem categoria'}
+            </p>
+
             <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground font-display mb-4 leading-tight">
               {product.name}
             </h2>

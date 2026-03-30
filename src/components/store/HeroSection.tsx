@@ -1,4 +1,5 @@
-import { Book, Palette, ShoppingCart, Star, Sparkles, User, Settings, Package } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Book, Palette, ShoppingCart, Star, Sparkles, User, Settings, Package, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,6 +25,18 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
 
   return (
     <section className="relative overflow-hidden gradient-hero py-16 md:py-24">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.22),transparent_28%),radial-gradient(circle_at_80%_20%,rgba(34,211,238,0.24),transparent_22%),radial-gradient(circle_at_50%_100%,rgba(244,114,182,0.24),transparent_30%)] opacity-90" />
+      <motion.div
+        className="absolute left-1/2 top-1/2 h-[42rem] w-[42rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
+      />
+      <motion.div
+        className="absolute left-1/2 top-1/2 h-[30rem] w-[30rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-fuchsia-200/15"
+        animate={{ rotate: -360, scale: [1, 1.04, 0.96, 1] }}
+        transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}
+      />
+
       <div className="absolute top-10 left-10 animate-float">
         <Star className="w-8 h-8 text-coloring opacity-80" fill="currentColor" />
       </div>
@@ -72,6 +85,10 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
                   <Package className="w-4 h-4 mr-2" />
                   Meus Pedidos
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/my-downloads')}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Meus Downloads
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => signOut()}>
                   Sair
@@ -90,6 +107,16 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
               <span className="sm:hidden">Entrar</span>
             </Button>
           )}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate('/colorir-loja')}
+            className="shadow-playful hover:scale-105 transition-transform text-xs md:text-sm"
+          >
+            <Palette className="w-4 h-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Colorir Loja</span>
+            <span className="sm:hidden">Colorir</span>
+          </Button>
           <Button 
             variant="secondary" 
             size="sm"
@@ -106,28 +133,38 @@ export function HeroSection({ onExplore, cartItemsCount, onCartClick }: HeroSect
           </Button>
         </div>
         
-        <div className="text-center max-w-3xl mx-auto px-4">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-4 md:mb-6 font-display leading-tight">
-            📚 Biblioteca de Brincar
-            <br />
-            <span className="text-coloring">Diversão Garantida!</span>
-          </h1>
-          
-          <p className="text-base md:text-lg lg:text-xl text-primary-foreground/90 mb-6 md:mb-8 font-body">
-            Livros digitais para colorir e pintar que vão despertar 
-            a criatividade dos pequenos artistas! 🖍️✨
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
-              onClick={onExplore}
-              className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-base md:text-lg px-6 md:px-8 py-5 md:py-6 rounded-2xl shadow-playful hover:scale-105 transition-all"
-            >
-              <Palette className="w-5 h-5 mr-2" />
-              Ver Livros para Colorir
-            </Button>
-          </div>
+        <div className="mx-auto max-w-5xl px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 28 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: 'easeOut' }}
+            className="grid items-center gap-10"
+          >
+            <div className="text-center">
+              <h1 className="text-3xl font-black text-primary-foreground sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-display leading-tight">
+                📚 Biblioteca de Brincar
+              </h1>
+
+              <p className="mt-3 text-2xl font-black uppercase tracking-[0.18em] text-prismatic psychedelic-text md:text-4xl lg:text-5xl">
+                colorir, imaginar e brincar
+              </p>
+
+              <p className="mb-6 mt-5 max-w-2xl text-base text-primary-foreground/90 md:text-lg lg:text-xl font-body mx-auto">
+                Livros digitais e físicos para colorir com uma vitrine cheia de glow, profundidade e energia visual para despertar a criatividade dos pequenos artistas. 🖍️✨
+              </p>
+
+              <div className="flex flex-col justify-center gap-4 sm:flex-row">
+                <Button 
+                  size="lg" 
+                  onClick={onExplore}
+                  className="group bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-base md:text-lg px-6 md:px-8 py-5 md:py-6 rounded-2xl shadow-playful hover:scale-105 transition-all"
+                >
+                  <Palette className="w-5 h-5 mr-2 transition-transform duration-300 group-hover:rotate-12" />
+                  Ver Livros para Colorir
+                </Button>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </div>
     </section>

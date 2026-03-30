@@ -8,13 +8,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Package, Truck, CheckCircle, Clock, XCircle, Download, Loader2, AlertCircle, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiRequest } from '@/lib/api';
+import { downloadFileToDevice } from '@/lib/download';
+import { DigitalDownloadsList, type DownloadItem } from '@/components/store/DigitalDownloadsList';
 
 interface OrderItem {
   id: string;
   product_name: string;
   quantity: number | null;
   price_at_purchase: number;
-  product_id: string | null;
+  product_id: string | number | null;
   products: {
     category: string | null;
     image_url: string | null;
@@ -30,22 +32,13 @@ interface Order {
   created_at: string | null;
   updated_at: string | null;
   order_items: OrderItem[];
-}
-
-interface DownloadItem {
-  id: string;
-  download_token: string;
-  download_count: number | null;
-  max_downloads: number | null;
-  expires_at: string;
-  product_id: string | null;
+  downloads?: DownloadItem[];
 }
 
 const MyOrders = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [downloads, setDownloads] = useState<Record<string, DownloadItem[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'physical' | 'digital'>('all');
@@ -61,11 +54,59 @@ const MyOrders = () => {
     }
   }, [user, authLoading, navigate]);
 
-  const fetchUserOrders = async () => {
+  const syncPendingOrders = async (list: Order[]) => {
+    const pendingOrders = list.filter(order => order.status === 'pending');
+    if (pendingOrders.length === 0) return false;
+
+    const results = await Promise.all(
+      pendingOrders.map(order =>
+        apiRequest(`/orders/${order.id}/sync-payment`)
+          .then((response) => response?.status === 'paid')
+          .catch(() => false)
+      )
+    );
+
+    return results.some(Boolean);
+  };
+
+  const fetchUserOrders = async (skipSync = false) => {
     try {
       const ordersData = await apiRequest(`/orders?userId=${user?.id}`);
-      const list = Array.isArray(ordersData) ? ordersData : (ordersData?.data || ordersData?.rows || []);
-      setOrders(list);
+      const list: Order[] = Array.isArray(ordersData) ? ordersData : (ordersData?.data || ordersData?.rows || []);
+
+      const withSimulatedTokens = list.map((order) => {
+        const isEligible = order.status === 'paid' || order.status === 'delivered';
+        if (!isEligible) return order;
+
+        const digitalItems = order.order_items?.filter(
+          (item) => item.products?.category === 'digital' && item.product_id != null
+        ) || [];
+
+        if (digitalItems.length === 0) return order;
+
+        const existing: DownloadItem[] = order.downloads || [];
+        const simulated: DownloadItem[] = digitalItems
+          .filter((item) => !existing.find((d) => String(d.product_id ?? '') === String(item.product_id ?? '')))
+          .map((item) => ({
+            id: `sim_${order.id}_${item.id}`,
+            download_token: `sim_${order.id}_${item.product_id}_${encodeURIComponent(item.product_name)}`,
+            download_count: 0,
+            max_downloads: null,
+            expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+            product_id: item.product_id,
+          }));
+
+        return { ...order, downloads: [...existing, ...simulated] };
+      });
+
+      setOrders(withSimulatedTokens);
+
+      if (!skipSync) {
+        const hasChangedStatus = await syncPendingOrders(withSimulatedTokens);
+        if (hasChangedStatus) {
+          return fetchUserOrders(true);
+        }
+      }
     } catch (err) {
       console.error('Error fetching orders:', err);
       toast.error('Erro ao carregar seus pedidos');
@@ -89,12 +130,12 @@ const MyOrders = () => {
       });
 
       if (data?.url) {
-        window.open(data.url, '_blank');
+        await downloadFileToDevice(data.url, data.fileName || 'livro-digital.pdf');
 
         toast.success(
           data.remainingDownloads == null
-            ? 'Download iniciado! Downloads ilimitados.'
-            : `Download iniciado! Restam ${data.remainingDownloads} downloads.`
+            ? 'Arquivo baixado no seu computador!'
+            : `Arquivo baixado! Restam ${data.remainingDownloads} downloads.`
         );
         fetchUserOrders();
       } else if (data?.error) {
@@ -108,7 +149,8 @@ const MyOrders = () => {
     }
   };
 
-  const formatDate = (date: string) => {
+  const formatDate = (date: string | null) => {
+    if (!date) return '-';
     return new Date(date).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -164,21 +206,6 @@ const MyOrders = () => {
 
   const physicalOrders = orders.filter(hasPhysicalItems);
   const digitalOrders = orders.filter(o => hasDigitalItems(o) && (o.status === 'paid' || o.status === 'delivered'));
-
-  const getRemainingDownloads = (download: DownloadItem) => {
-    if (download.max_downloads == null) return null;
-    const max = download.max_downloads;
-    const used = download.download_count || 0;
-    return max - used;
-  };
-
-  const isExpired = (download: DownloadItem) => {
-    const expDate = new Date(download.expires_at);
-    const fiftyYearsFromNow = new Date();
-    fiftyYearsFromNow.setFullYear(fiftyYearsFromNow.getFullYear() + 50);
-    if (expDate > fiftyYearsFromNow) return false;
-    return expDate < new Date();
-  };
 
   if (authLoading || isLoading) {
     return (
@@ -518,112 +545,15 @@ const MyOrders = () => {
           </TabsContent>
 
           <TabsContent value="digital">
-            {digitalOrders.length > 0 ? (
-              <div className="space-y-4">
-                {digitalOrders.map((order) => {
-                  const digitalItems = order.order_items.filter(
-                    item => item.products?.category === 'digital'
-                  );
-                  const orderDownloads = downloads[order.id] || [];
-
-                  return (
-                    <Card key={order.id}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle className="text-lg font-display flex items-center gap-2">
-                              <FileText className="w-5 h-5 text-primary" />
-                              Pedido de {order.created_at && formatDate(order.created_at)}
-                            </CardTitle>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Total: {formatPrice(order.total_price)}
-                            </p>
-                          </div>
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-accent/20 text-accent-foreground">
-                            Pago
-                          </span>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {digitalItems.map((item) => {
-                            const download = orderDownloads.find(d => d.product_id === item.product_id);
-                            const remaining = download ? getRemainingDownloads(download) : 0;
-                            const expired = download ? isExpired(download) : false;
-                            const exhausted = remaining != null ? remaining <= 0 : false;
-                            const disabled = !download || expired || exhausted;
-
-                            return (
-                              <div 
-                                key={item.id} 
-                                className="flex items-center gap-4 p-3 border rounded-lg bg-muted/30"
-                              >
-                                <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
-                                  {item.products?.image_url ? (
-                                    <img 
-                                      src={item.products.image_url} 
-                                      alt={item.product_name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <FileText className="w-6 h-6 text-muted-foreground" />
-                                  )}
-                                </div>
-                                
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium truncate">{item.product_name}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {!download ? (
-                                      'Processando...'
-                                    ) : expired ? (
-                                      <span className="text-destructive">Link expirado</span>
-                                    ) : exhausted ? (
-                                      <span className="text-destructive">Downloads esgotados</span>
-                                    ) : (
-                                      remaining == null
-                                        ? 'Downloads ilimitados'
-                                        : `${remaining} downloads restantes`
-                                    )}
-                                  </p>
-                                </div>
-                                
-                                <Button 
-                                  size="sm"
-                                  disabled={disabled || (download && downloadingId === download.id)}
-                                  onClick={() => download && handleDownload(download)}
-                                  className="flex-shrink-0"
-                                >
-                                  {download && downloadingId === download.id ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : disabled ? (
-                                    <AlertCircle className="w-4 h-4" />
-                                  ) : (
-                                    <Download className="w-4 h-4" />
-                                  )}
-                                </Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <Download className="w-12 h-12 text-muted-foreground mb-4" />
-                  <h3 className="font-bold text-lg mb-2">Nenhum download disponível</h3>
-                  <p className="text-muted-foreground text-center mb-6">
-                    Você ainda não possui compras digitais pagas.
-                  </p>
-                  <Button onClick={() => navigate('/')}>
-                    Ver Produtos Digitais
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+            <DigitalDownloadsList
+              orders={digitalOrders}
+              downloadingId={downloadingId}
+              onDownload={handleDownload}
+              onBrowseProducts={() => navigate('/')}
+              formatDate={formatDate}
+              formatPrice={formatPrice}
+              emptyDescription="Você ainda não possui compras digitais pagas."
+            />
           </TabsContent>
         </Tabs>
       </main>

@@ -12,8 +12,8 @@ const OrderSuccess = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get('order_id');
-  const paymentStatus = searchParams.get('status');
-  const paymentId = searchParams.get('payment_id');
+  const paymentStatus = searchParams.get('status') || searchParams.get('collection_status');
+  const paymentId = searchParams.get('payment_id') || searchParams.get('collection_id');
   const { clearCart } = useCart();
 
   const [paymentInfo, setPaymentInfo] = useState<{ order_status?: string; latest_webhook?: { mercado_pago_status?: string; mercado_pago_id?: string; payer_email?: string; amount?: number } } | null>(null);
@@ -33,13 +33,18 @@ const OrderSuccess = () => {
         clearTimeout(timeout);
       };
     }
-  }, [clearCart, orderId]);
+  }, [clearCart, orderId, paymentId]);
 
   const fetchPaymentStatus = async () => {
     try {
       if (!orderId) return;
+      const query = paymentId ? `?payment_id=${encodeURIComponent(paymentId)}` : '';
       
-      const data = await apiRequest(`/orders/${orderId}/payment-status`);
+      await apiRequest(`/orders/${orderId}/sync-payment${query}`).catch(err => {
+        console.log('Sincronização com Mercado Pago:', err);
+      });
+
+      const data = await apiRequest(`/orders/${orderId}/payment-status${query}`);
       setPaymentInfo(data);
 
       if (data?.latest_webhook?.mercado_pago_status === 'approved' && data?.order_status === 'pending') {
@@ -134,7 +139,7 @@ const OrderSuccess = () => {
           {isApproved && (
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
               <p className="text-sm text-green-700 dark:text-green-200">
-                Obrigado pela sua compra! Seu pedido foi processado com sucesso.
+                Obrigado! Seu pagamento foi confirmado e seu pedido foi processado com sucesso.
               </p>
             </div>
           )}

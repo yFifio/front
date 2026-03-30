@@ -1,7 +1,8 @@
 export const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   const env = import.meta.env as ImportMetaEnv;
-  const envUrl = env.VITE_API_URL || 'http://localhost:3001/api';
-  const baseUrl = envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
+  const envUrl = env.VITE_API_URL || '/api';
+  const primaryBaseUrl = envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
+  const fallbackBaseUrl = 'http://localhost:3001/api';
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -14,14 +15,30 @@ export const apiRequest = async (endpoint: string, options: RequestInit = {}) =>
   }
 
   try {
-    const response = await fetch(`${baseUrl}${endpoint}`, {
+    const requestConfig = {
       ...options,
       headers,
-    });
+    };
+
+    let response: Response;
+    try {
+      response = await fetch(`${primaryBaseUrl}${endpoint}`, requestConfig);
+    } catch (networkError) {
+      const shouldTryFallback =
+        primaryBaseUrl.startsWith('/api') ||
+        primaryBaseUrl.startsWith(window.location.origin);
+
+      if (!shouldTryFallback) {
+        throw networkError;
+      }
+
+      response = await fetch(`${fallbackBaseUrl}${endpoint}`, requestConfig);
+    }
 
     if (response.status === 401) {
       console.warn('Sessão expirada ou inválida');
       localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
       if (!window.location.pathname.includes('/auth')) {
          window.location.href = '/auth'; 
       }

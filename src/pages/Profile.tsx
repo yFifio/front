@@ -1,25 +1,24 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
-import { validarCPF } from '@/lib/validators';
+import { Loader2, Package, Download } from 'lucide-react';
 
 export default function Profile() {
   const { user, updateProfile, isLoading } = useAuth();
+  const navigate = useNavigate();
   
   const [nome, setNome] = useState('');
-  const [cpf, setCpf] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmSenha, setConfirmSenha] = useState('');
 
   useEffect(() => {
     if (user) {
       setNome(user.nome || '');
-      setCpf(user.cpf || '');
     }
   }, [user]);
 
@@ -34,12 +33,7 @@ export default function Profile() {
         return toast.error('A senha deve conter maiúsculas, minúsculas e números.');
     }
 
-    const cleanCpf = cpf.replace(/\D/g, '');
-    if (!validarCPF(cleanCpf)) {
-      return toast.error('CPF inválido');
-    }
-
-    const dadosAtualizacao: { nome: string; cpf: string; senha?: string } = { nome, cpf: cleanCpf };
+    const dadosAtualizacao: { nome: string; senha?: string } = { nome };
     if (senha) dadosAtualizacao.senha = senha;
 
     const result = await updateProfile(dadosAtualizacao);
@@ -56,7 +50,17 @@ export default function Profile() {
   if (!user) return null;
 
   return (
-    <div className="container mx-auto p-6 max-w-lg">
+    <div className="container mx-auto p-6 max-w-lg space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <Button variant="outline" className="flex items-center gap-2 h-14" onClick={() => navigate('/my-orders')}>
+          <Package className="w-5 h-5 text-primary" />
+          <span className="font-medium">Meus Pedidos</span>
+        </Button>
+        <Button variant="outline" className="flex items-center gap-2 h-14" onClick={() => navigate('/my-downloads')}>
+          <Download className="w-5 h-5 text-primary" />
+          <span className="font-medium">Meus Downloads</span>
+        </Button>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>O meu Perfil</CardTitle>
@@ -77,11 +81,11 @@ export default function Profile() {
               <Label htmlFor="cpf">CPF</Label>
               <Input
                 id="cpf"
-                value={cpf}
-                maxLength={11}
-                onChange={(e) => setCpf(e.target.value.replace(/\D/g, ''))}
-                required
+                value={user.cpf || ''}
+                disabled
+                className="bg-muted"
               />
+              <p className="text-xs text-muted-foreground">O CPF não pode ser alterado.</p>
             </div>
             <div className="border-t pt-4 mt-4">
               <h3 className="font-semibold mb-3">Alterar Senha (Opcional)</h3>

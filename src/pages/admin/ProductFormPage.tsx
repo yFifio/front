@@ -21,7 +21,7 @@ export default function ProductFormPage() {
           setProduct(data as Product);
         } catch (error) {
           toast.error('Erro ao carregar produto.');
-          navigate('/admin');
+          navigate('/admin/products');
         } finally {
           setIsLoading(false);
         }
@@ -31,7 +31,7 @@ export default function ProductFormPage() {
   }, [id, navigate]);
 
   const handleSuccess = () => {
-    navigate('/admin'); 
+    navigate('/admin/products'); 
   };
 
   if (isLoading) {
@@ -44,7 +44,7 @@ export default function ProductFormPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-3xl space-y-6">
-      <Button variant="ghost" onClick={() => navigate('/admin')} className="mb-4">
+      <Button variant="ghost" onClick={() => navigate('/admin/products')} className="mb-4">
         <ArrowLeft className="w-4 h-4 mr-2" />
         Voltar
       </Button>

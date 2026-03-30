@@ -33,6 +33,7 @@ export default function Products() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-products-count'] });
       toast.success('Produto excluído com sucesso!');
       setDeletingProduct(null);
     },
@@ -51,6 +52,7 @@ export default function Products() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-products-count'] });
       toast.success('Produto desativado!');
       setDeletingProduct(null);
     },

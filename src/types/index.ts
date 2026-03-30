@@ -14,6 +14,8 @@ export interface Product {
   description: string | null;
   price: number;
   image_url: string | null;
+  pdf_url?: string | null;
+  pdf_file_name?: string | null;
   age_range: string | null;
   category: 'digital' | 'physical';
   categoryId?: number | null;
@@ -36,10 +38,20 @@ export interface Order {
   customer_id: string | null;
   customer_email: string;
   customer_name: string | null;
+  customer_cpf?: string | null;
   total_price: number;
-  status: 'pending' | 'paid' | 'delivered' | 'cancelled';
+  subtotal_price?: number | null;
+  coupon_code?: string | null;
+  discount_amount?: number | null;
+  delivery_address?: string | null;
+  delivery_city?: string | null;
+  delivery_state?: string | null;
+  delivery_zip?: string | null;
+  delivery_phone?: string | null;
+  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
   created_at: string;
   updated_at: string;
+  order_items?: OrderItem[];
 }
 
 export interface OrderItem {

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { apiRequest } from '../lib/api';
+import { useCart } from './useCart';
 
 export interface User {
   id: number;
@@ -16,13 +17,18 @@ interface SignUpData {
   cpf: string;
 }
 
+type ProfileUpdateData = {
+  nome: string;
+  senha?: string;
+};
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAdmin: boolean;
   signIn: (email: string, senha: string) => Promise<{ user: User | null; error: Error | null }>;
   signUp: (dados: SignUpData) => Promise<{ user: User | null; error: Error | null }>;
-  updateProfile: (dados: Partial<SignUpData>) => Promise<{ error: Error | null }>;
+  updateProfile: (dados: ProfileUpdateData) => Promise<{ error: Error | null }>;
   signOut: () => void;
 }
 
@@ -31,19 +37,35 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const setCartSession = useCart((state) => state.setCartSession);
 
   useEffect(() => {
+    const token = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('user_data');
+
+    if (!token) {
+      localStorage.removeItem('user_data');
+      setUser(null);
+      setCartSession(null);
+      return;
+    }
+
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser) as User;
+        setUser(parsedUser);
+        setCartSession(parsedUser.id);
       } catch {
+        localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
+        setUser(null);
+        setCartSession(null);
       }
     }
-  }, []);
+  }, [setCartSession]);
 
   const persistUser = (token: string, userData: User) => {
+    setCartSession(userData.id);
     localStorage.setItem('auth_token', token);
     localStorage.setItem('user_data', JSON.stringify(userData));
     setUser(userData);
@@ -81,12 +103,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = () => {
+    setCartSession(null);
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
     setUser(null);
   };
 
-  const updateProfile = async (dados: Partial<SignUpData>) => {
+  const updateProfile = async (dados: ProfileUpdateData) => {
     setIsLoading(true);
     try {
       await apiRequest('/users/me', {

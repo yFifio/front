@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
 const API_URL =
-  (import.meta as any).env?.VITE_API_URL ||
+  (import.meta.env as Record<string, string>)?.VITE_API_URL ||
   'http://localhost:3001/api';
 
 export const api = {

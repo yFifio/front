@@ -22,7 +22,7 @@ const resolveSessionKey = (userId: number | null | undefined) => {
 };
 
 try {
-  var useCart = create<CartStore>()(
+  const useCart = create<CartStore>()(
     persist(
       (set, get) => ({
         sessionKey: 'guest',

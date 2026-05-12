@@ -1,26 +1,27 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
   Package, 
   ShoppingCart, 
+  Users,
+  Settings,
   LogOut, 
   Menu, 
-  X,
   Loader2,
   Home,
-  Megaphone
+  User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/products', label: 'Produtos', icon: Package },
+  { href: '/admin/users', label: 'Usuários', icon: Users },
+  { href: '/admin/operations', label: 'Operações', icon: Settings },
   { href: '/admin/orders', label: 'Pedidos', icon: ShoppingCart },
-  { href: '/admin/popups', label: 'Popups', icon: Megaphone },
 ];
 
 export function AdminLayout() {
@@ -37,13 +38,7 @@ export function AdminLayout() {
         return;
       }
 
-      const { data, error } = await supabase.rpc('is_admin');
-      if (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
-      } else {
-        setIsAdmin(data);
-      }
+      setIsAdmin(true);
     }
 
     if (!authLoading) {
@@ -86,70 +81,102 @@ export function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b h-16 flex items-center justify-between px-4">
-        <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
-          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </Button>
-        <h1 className="font-bold font-display text-lg">🎨 Admin</h1>
-        <Button variant="ghost" size="icon" onClick={handleSignOut}>
-          <LogOut className="w-5 h-5" />
-        </Button>
-      </header>
-
-      {/* Sidebar */}
+    <div className="min-h-screen bg-background flex font-display">
       <aside className={cn(
-        "fixed top-0 left-0 z-40 h-full w-64 bg-card border-r transition-transform duration-300",
-        "lg:translate-x-0",
+        "fixed inset-y-0 left-0 z-50 w-72 bg-card border-r border-border shadow-lg transition-transform duration-300 lg:translate-x-0 lg:static lg:h-screen rounded-r-3xl lg:rounded-none",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="p-6 border-b">
-          <h1 className="font-bold font-display text-xl text-primary">
-            🎨 Biblioteca do Brincar
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Painel Admin</p>
-        </div>
+        <div className="h-full flex flex-col">
+          <div className="p-8 border-b border-border">
+            <h1 className="font-bold text-3xl text-primary flex items-center gap-2">
+              <span className="text-4xl animate-bounce-gentle">🎪</span>
+              Admin
+            </h1>
+            <p className="text-sm font-medium text-muted-foreground mt-2 bg-muted px-3 py-1 rounded-full inline-block">
+              Biblioteca do Brincar
+            </p>
+          </div>
 
-        <nav className="p-4 space-y-2">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
-                  isActive 
-                    ? "bg-primary text-primary-foreground" 
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <item.icon className="w-5 h-5" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+          <div className="flex-1 overflow-y-auto py-8 px-6 space-y-8">
+            <div>
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 px-2">
+                Menu Principal
+              </h3>
+              <nav className="space-y-3">
+                {navItems.map((item) => {
+                  const isActive = location.pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={cn(
+                        "flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-300 group relative overflow-hidden",
+                        isActive 
+                          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-105" 
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-105"
+                      )}
+                    >
+                      <div className={cn(
+                        "p-2 rounded-xl transition-colors",
+                        isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-primary"
+                      )}>
+                        <item.icon className={cn(
+                          "w-5 h-5 transition-transform duration-300",
+                          isActive ? "scale-110" : "group-hover:rotate-12"
+                        )} />
+                      </div>
+                      <span className="font-bold">{item.label}</span>
+                      {isActive && (
+                        <div className="absolute right-3 w-2 h-2 rounded-full bg-white animate-pulse" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
-          <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4 px-4">
-            <Home className="w-4 h-4" />
-            Ver Loja
-          </Link>
-          <Button 
-            variant="outline" 
-            className="w-full justify-start"
-            onClick={handleSignOut}
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sair
-          </Button>
+            <div>
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 px-2">
+                Sistema
+              </h3>
+              <nav className="space-y-3">
+                <Link
+                  to="/admin/settings"
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-300 text-muted-foreground hover:text-accent-foreground hover:bg-accent hover:scale-105"
+                >
+                  <div className="p-2 rounded-xl bg-muted transition-colors">
+                    <Settings className="w-5 h-5" />
+                  </div>
+                  <span className="font-bold">Configurações</span>
+                </Link>
+              </nav>
+            </div>
+          </div>
+
+          <div className="p-6 border-t border-border bg-muted/30">
+            <div className="flex items-center gap-4 mb-4 px-2">
+              <div className="w-12 h-12 rounded-2xl bg-background shadow-sm flex items-center justify-center text-primary font-bold border border-border">
+                <User className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-foreground truncate">{user.nome || 'Administrador'}</p>
+                <p className="text-xs text-muted-foreground truncate">{user.email || '-'}</p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start text-destructive hover:text-white hover:bg-destructive hover:border-destructive rounded-xl border-2 border-destructive/20 transition-all duration-300 font-bold"
+              onClick={handleSignOut}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sair do Sistema
+            </Button>
+          </div>
         </div>
       </aside>
 
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-30 lg:hidden"
@@ -157,12 +184,30 @@ export function AdminLayout() {
         />
       )}
 
-      {/* Main content */}
-      <main className="lg:ml-64 pt-16 lg:pt-0 min-h-screen">
-        <div className="p-6">
-          <Outlet />
-        </div>
-      </main>
+      <div className="flex-1 flex flex-col min-h-screen transition-all duration-300">
+        <header className="h-24 border-b border-border bg-background/90 backdrop-blur-md sticky top-0 z-30 px-8 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
+              <Menu className="w-6 h-6" />
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Link to="/">
+              <Button variant="ghost" size="sm" className="hidden sm:flex gap-2 rounded-xl hover:bg-accent text-foreground font-bold">
+                <Home className="w-4 h-4" />
+                Ver Loja
+              </Button>
+            </Link>
+          </div>
+        </header>
+
+        <main className="flex-1 p-8 overflow-y-auto">
+          <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

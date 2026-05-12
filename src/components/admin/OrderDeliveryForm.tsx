@@ -1,17 +1,25 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { MapPin, Phone, Truck, Mail, Loader2 } from 'lucide-react';
+import { MapPin, Phone, Truck, Mail, Loader2, CheckCircle } from 'lucide-react';
+import { apiRequest } from '@/lib/api';
+import { getOrderStatusClassName, getOrderStatusLabel } from '@/lib/orderStatus';
 
 interface OrderDeliveryData {
   delivery_address: string | null;
@@ -26,6 +34,7 @@ interface OrderDeliveryFormProps {
   orderId: string;
   customerName: string | null;
   customerEmail: string;
+  currentStatus?: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
   initialData: OrderDeliveryData;
   orderItems: Array<{ product_name: string; quantity: number | null }>;
   open: boolean;
@@ -36,6 +45,7 @@ export function OrderDeliveryForm({
   orderId,
   customerName,
   customerEmail,
+  currentStatus = 'pending',
   initialData,
   orderItems,
   open,
@@ -51,53 +61,41 @@ export function OrderDeliveryForm({
     tracking_code: initialData.tracking_code || '',
   });
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [deliveryStatus, setDeliveryStatus] = useState<'paid' | 'shipped' | 'delivered'>(
+    currentStatus === 'delivered' ? 'delivered' : currentStatus === 'shipped' ? 'shipped' : 'paid'
+  );
 
   const previousTrackingCode = initialData.tracking_code;
 
   const updateMutation = useMutation({
     mutationFn: async (data: OrderDeliveryData) => {
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          ...data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', orderId);
-
-      if (error) throw error;
-      return data;
+      return await apiRequest(`/orders/${orderId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       
-      // Send email if tracking code was added or changed
       const trackingCodeChanged = data.tracking_code && data.tracking_code !== previousTrackingCode;
       
       if (trackingCodeChanged) {
         setSendingEmail(true);
         try {
-          const { error: emailError } = await supabase.functions.invoke(
-            'send-tracking-email',
-            {
-              body: {
-                customerEmail,
-                customerName,
-                orderId,
-                trackingCode: data.tracking_code,
-                orderItems: orderItems.map(item => ({
-                  name: item.product_name,
-                  quantity: item.quantity || 1,
-                })),
-              },
-            }
-          );
+          await apiRequest(`/orders/${orderId}/tracking-email`, {
+            method: 'POST',
+            body: JSON.stringify({
+              customerEmail,
+              customerName,
+              trackingCode: data.tracking_code,
+              orderItems: orderItems.map(item => ({
+                name: item.product_name,
+                quantity: item.quantity || 1,
+              })),
+            }),
+          });
 
-          if (emailError) {
-            console.error('Error sending tracking email:', emailError);
-            toast.warning('Dados salvos, mas houve erro ao enviar email de rastreio');
-          } else {
-            toast.success('Dados atualizados e email de rastreio enviado!');
-          }
+          toast.success('Dados atualizados e email de rastreio enviado!');
         } catch (err) {
           console.error('Error invoking email function:', err);
           toast.warning('Dados salvos, mas houve erro ao enviar email');
@@ -115,6 +113,23 @@ export function OrderDeliveryForm({
     },
   });
 
+  const statusMutation = useMutation({
+    mutationFn: async (status: 'paid' | 'shipped' | 'delivered') => {
+      return await apiRequest(`/orders/${orderId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      toast.success('Status de entrega atualizado!');
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Erro ao atualizar status de entrega';
+      toast.error(message);
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateMutation.mutate(formData);
@@ -124,7 +139,33 @@ export function OrderDeliveryForm({
     setFormData((prev) => ({ ...prev, [field]: value || null }));
   };
 
+  const getStatusVisual = (status: 'paid' | 'shipped' | 'delivered') => {
+    if (status === 'paid') {
+      return {
+        label: getOrderStatusLabel('paid'),
+        className: getOrderStatusClassName('paid'),
+        icon: <CheckCircle className="w-3 h-3" />,
+      };
+    }
+
+    if (status === 'shipped') {
+      return {
+        label: getOrderStatusLabel('shipped'),
+        className: getOrderStatusClassName('shipped'),
+        icon: <Truck className="w-3 h-3" />,
+      };
+    }
+
+    return {
+      label: getOrderStatusLabel('delivered'),
+      className: getOrderStatusClassName('delivered'),
+      icon: <CheckCircle className="w-3 h-3" />,
+    };
+  };
+
   const isLoading = updateMutation.isPending || sendingEmail;
+  const isStatusLoading = statusMutation.isPending;
+  const statusVisual = getStatusVisual(deliveryStatus);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -140,6 +181,47 @@ export function OrderDeliveryForm({
           <p className="text-sm text-muted-foreground">
             Cliente: <span className="font-medium text-foreground">{customerName || 'N/A'}</span>
           </p>
+
+          <div className="space-y-2 rounded-lg border p-3">
+            <Label>Status de Entrega</Label>
+            <div className="flex items-center gap-2">
+              <Select
+                value={deliveryStatus}
+                onValueChange={(value) => setDeliveryStatus(value as 'paid' | 'shipped' | 'delivered')}
+                disabled={isStatusLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="paid">Pago</SelectItem>
+                  <SelectItem value="shipped">Enviado</SelectItem>
+                  <SelectItem value="delivered">Entregue</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={isStatusLoading}
+                onClick={() => statusMutation.mutate(deliveryStatus)}
+              >
+                {isStatusLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Atualizando...
+                  </>
+                ) : (
+                  'Atualizar'
+                )}
+              </Button>
+            </div>
+            <div className="pt-1">
+              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusVisual.className}`}>
+                {statusVisual.icon}
+                {statusVisual.label}
+              </span>
+            </div>
+          </div>
 
           <div className="space-y-3">
             <div>

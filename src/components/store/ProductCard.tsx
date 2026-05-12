@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { ShoppingCart, Star, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -42,7 +43,6 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
     }).format(price);
   };
 
-  // Get sorted images with primary first
   const images = product.images || [];
   const sortedImages = [...images].sort((a, b) => {
     if (a.is_primary && !b.is_primary) return -1;
@@ -78,15 +78,21 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
 
   return (
     <>
-      <Card 
-        className={`group overflow-hidden border-2 transition-all duration-300 hover:shadow-playful hover:-translate-y-1 cursor-pointer ${
-          product.is_featured 
-            ? 'border-accent ring-2 ring-accent/30' 
-            : 'border-border hover:border-primary/50'
-        }`}
-        onClick={handleCardClick}
+      <motion.div
+        whileHover={{ y: -8, rotateX: 2.5, rotateY: -2.5, scale: 1.015 }}
+        transition={{ type: 'spring', stiffness: 230, damping: 18 }}
+        style={{ transformStyle: 'preserve-3d' }}
       >
+        <Card 
+          className={`group glass-panel psychedelic-border overflow-hidden border-2 transition-all duration-300 hover:shadow-playful cursor-pointer ${
+            product.is_featured 
+              ? 'border-accent ring-2 ring-accent/30' 
+              : 'border-border/60 hover:border-primary/50'
+          }`}
+          onClick={handleCardClick}
+        >
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.22),transparent_30%),linear-gradient(135deg,rgba(217,70,239,0.12),transparent_30%,rgba(34,211,238,0.12))] opacity-80" />
         {currentImage ? (
           <img 
             src={currentImage} 
@@ -99,7 +105,6 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           </div>
         )}
         
-        {/* Navigation Arrows */}
         {hasMultipleImages && (
           <>
             <Button
@@ -119,7 +124,6 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
               <ChevronRight className="h-4 w-4" />
             </Button>
             
-            {/* Image Dots Indicator */}
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
               {sortedImages.map((_, index) => (
                 <button
@@ -139,7 +143,6 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           </>
         )}
         
-        {/* Featured Badge */}
         {product.is_featured && (
           <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground font-bold animate-pulse">
             <Sparkles className="w-3 h-3 mr-1" />
@@ -147,21 +150,18 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           </Badge>
         )}
         
-        {/* Category Badge */}
         {!product.is_featured && (
           <Badge className={`absolute top-3 left-3 ${config.bgClass} ${config.textClass} font-bold`}>
             {config.label}
           </Badge>
         )}
         
-        {/* Discount Badge */}
         {hasDiscount && (
           <Badge className="absolute top-3 right-3 bg-destructive text-destructive-foreground font-bold text-sm">
             -{product.discount_percent}%
           </Badge>
         )}
         
-        {/* Age Range Badge (only if no discount and has age range) */}
         {!hasDiscount && product.age_range && (
           <Badge variant="secondary" className="absolute top-3 right-3 font-medium">
             {product.age_range}
@@ -179,6 +179,11 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             {product.description}
           </p>
         )}
+
+        <p className="text-xs md:text-sm text-muted-foreground mb-3">
+          <span className="font-semibold text-foreground">Categoria:</span>{' '}
+          {product.book_category?.trim() || 'Sem categoria'}
+        </p>
         
         <div className="flex items-center gap-1 mb-2">
           {[1, 2, 3, 4, 5].map((star) => (
@@ -218,7 +223,8 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           Adicionar
         </Button>
       </CardFooter>
-    </Card>
+        </Card>
+      </motion.div>
 
     <ProductDetailModal
       product={product}

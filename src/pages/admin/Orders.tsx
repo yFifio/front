@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +20,14 @@ import {
 } from '@/components/ui/select';
 import { Eye, Package, Truck, CheckCircle, Clock, XCircle, Smartphone, FileText, MapPin } from 'lucide-react';
 import { OrderDeliveryForm } from '@/components/admin/OrderDeliveryForm';
+import { apiRequest } from '@/lib/api';
+import {
+  ALL_ORDER_STATUS_OPTIONS,
+  NON_SHIPPING_ORDER_STATUS_OPTIONS,
+  getOrderStatusClassName,
+  getOrderStatusLabel,
+  normalizeOrderStatus,
+} from '@/lib/orderStatus';
 
 interface OrderItem {
   id: string;
@@ -60,69 +67,30 @@ export default function Orders() {
   const { data: orders, isLoading } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items(
-            *,
-            products:product_id(category)
-          )
-        `)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data as Order[];
+      const data = await apiRequest('/orders');
+      const list = Array.isArray(data) ? data : data?.data || data?.rows || data?.orders || [];
+      return list as Order[];
     },
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ orderId, status, order }: { orderId: string; status: string; order: Order }) => {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', orderId);
+    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
+      await apiRequest(`/orders/${orderId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
       
-      if (error) throw error;
-      
-      return { orderId, status, order };
+      return { orderId, status };
     },
-    onSuccess: async ({ orderId, status, order }) => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-recent-orders'] });
       toast.success('Status atualizado!');
-      
-      // Send status email to customer
-      try {
-        const { error: emailError } = await supabase.functions.invoke(
-          'send-order-status-email',
-          {
-            body: {
-              customerEmail: order.customer_email,
-              customerName: order.customer_name,
-              orderId: orderId,
-              status: status,
-              orderItems: order.order_items.map(item => ({
-                name: item.product_name,
-                quantity: item.quantity || 1,
-              })),
-              totalPrice: order.total_price,
-              trackingCode: order.tracking_code,
-            },
-          }
-        );
-
-        if (emailError) {
-          console.error('Error sending status email:', emailError);
-          toast.warning('Status salvo, mas houve erro ao enviar email');
-        } else {
-          toast.success('Email de status enviado ao cliente!');
-        }
-      } catch (err) {
-        console.error('Error invoking email function:', err);
-      }
     },
     onError: (error) => {
-      toast.error('Erro ao atualizar: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Erro ao atualizar status';
+      toast.error('Erro ao atualizar: ' + message);
     },
   });
 
@@ -144,34 +112,35 @@ export default function Orders() {
   };
 
   const getStatusInfo = (status: string) => {
+    const normalized = normalizeOrderStatus(status);
     const statusMap: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
       pending: { 
-        label: 'Pendente', 
+        label: getOrderStatusLabel('pending'), 
         icon: <Clock className="w-3 h-3" />, 
-        color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' 
+        color: getOrderStatusClassName('pending'), 
       },
       paid: { 
-        label: 'Pago', 
+        label: getOrderStatusLabel('paid'), 
         icon: <CheckCircle className="w-3 h-3" />, 
-        color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+        color: getOrderStatusClassName('paid'), 
       },
       shipped: { 
-        label: 'Enviado', 
+        label: getOrderStatusLabel('shipped'), 
         icon: <Truck className="w-3 h-3" />, 
-        color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' 
+        color: getOrderStatusClassName('shipped'), 
       },
       delivered: { 
-        label: 'Entregue', 
+        label: getOrderStatusLabel('delivered'), 
         icon: <CheckCircle className="w-3 h-3" />, 
-        color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' 
+        color: getOrderStatusClassName('delivered'), 
       },
       cancelled: { 
-        label: 'Cancelado', 
+        label: getOrderStatusLabel('cancelled'), 
         icon: <XCircle className="w-3 h-3" />, 
-        color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' 
+        color: getOrderStatusClassName('cancelled'), 
       },
     };
-    return statusMap[status] || statusMap.pending;
+    return statusMap[normalized] || statusMap.pending;
   };
 
   const getStatusBadge = (status: string) => {
@@ -213,29 +182,17 @@ export default function Orders() {
   };
 
   const handleStatusChange = (order: Order, newStatus: string) => {
-    updateStatusMutation.mutate({ orderId: order.id, status: newStatus, order });
+    updateStatusMutation.mutate({ orderId: order.id, status: newStatus });
   };
 
   const getAvailableStatuses = (order: Order) => {
     const orderType = getOrderType(order);
     
-    // Digital-only orders don't need shipping statuses
     if (orderType === 'digital') {
-      return [
-        { value: 'pending', label: 'Pendente' },
-        { value: 'paid', label: 'Pago' },
-        { value: 'cancelled', label: 'Cancelado' },
-      ];
+      return NON_SHIPPING_ORDER_STATUS_OPTIONS;
     }
     
-    // Physical or mixed orders have full shipping flow
-    return [
-      { value: 'pending', label: 'Pendente' },
-      { value: 'paid', label: 'Pago' },
-      { value: 'shipped', label: 'Enviado' },
-      { value: 'delivered', label: 'Entregue' },
-      { value: 'cancelled', label: 'Cancelado' },
-    ];
+    return ALL_ORDER_STATUS_OPTIONS;
   };
 
   const getOrderTypeIcon = (order: Order) => {
@@ -354,7 +311,6 @@ export default function Orders() {
                         </div>
                       </div>
 
-                      {/* Delivery Progress for Physical Orders */}
                       {hasPhysicalItems(order) && order.status !== 'pending' && order.status !== 'cancelled' && (
                         <div className="mt-4 pt-4 border-t">
                           <div className="flex items-center gap-2">
@@ -416,7 +372,6 @@ export default function Orders() {
         </TabsContent>
       </Tabs>
 
-      {/* Order Details Dialog */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -449,7 +404,6 @@ export default function Orders() {
                 </div>
               </div>
 
-              {/* Delivery Info for Physical Orders */}
               {hasPhysicalItems(selectedOrder) && (
                 <div className="border-t pt-4">
                   <div className="flex items-center justify-between mb-2">
@@ -534,12 +488,12 @@ export default function Orders() {
         </DialogContent>
       </Dialog>
 
-      {/* Delivery Form Dialog */}
       {deliveryEditOrder && (
         <OrderDeliveryForm
           orderId={deliveryEditOrder.id}
           customerName={deliveryEditOrder.customer_name}
           customerEmail={deliveryEditOrder.customer_email}
+          currentStatus={(deliveryEditOrder.status || 'pending') as 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled'}
           orderItems={deliveryEditOrder.order_items}
           initialData={{
             delivery_address: deliveryEditOrder.delivery_address,

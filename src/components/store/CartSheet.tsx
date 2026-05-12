@@ -55,6 +55,12 @@ export function CartSheet({
               {items.map((item) => (
                 <Card key={item.product.id} className="border-border">
                   <CardContent className="p-4">
+                    {(() => {
+                      const itemDiscount = item.product.discount_percent || 0;
+                      const discountedUnitPrice = item.product.price * (1 - itemDiscount / 100);
+                      const hasDiscount = itemDiscount > 0;
+
+                      return (
                     <div className="flex gap-4">
                       <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
                         {item.product.image_url ? (
@@ -74,9 +80,20 @@ export function CartSheet({
                         <h4 className="font-bold text-sm line-clamp-2 font-display">
                           {item.product.name}
                         </h4>
-                        <p className="text-primary font-bold mt-1">
-                          {formatPrice(item.product.price)}
-                        </p>
+                        {hasDiscount ? (
+                          <div className="mt-1">
+                            <p className="text-xs text-muted-foreground line-through">
+                              {formatPrice(item.product.price)}
+                            </p>
+                            <p className="text-primary font-bold">
+                              {formatPrice(discountedUnitPrice)}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-primary font-bold mt-1">
+                            {formatPrice(item.product.price)}
+                          </p>
+                        )}
                         
                         <div className="flex items-center gap-2 mt-2">
                           <Button 
@@ -107,6 +124,8 @@ export function CartSheet({
                         </div>
                       </div>
                     </div>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               ))}
@@ -131,7 +150,7 @@ export function CartSheet({
                 className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-lg py-6 rounded-xl shadow-playful hover:scale-[1.02] transition-all"
                 onClick={onCheckout}
               >
-                Finalizar Compra
+                Pagar {formatPrice(totalPrice)}
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </div>

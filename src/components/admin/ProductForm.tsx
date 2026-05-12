@@ -1,442 +1,188 @@
-import { useState, useEffect } from 'react';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Loader2, Sparkles, Percent } from 'lucide-react';
-import { FileUpload } from './FileUpload';
-import { ImageUpload } from './ImageUpload';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
+import { SingleImageUpload } from '@/components/admin/SingleImageUpload';
+import { PdfUpload } from '@/components/admin/PdfUpload';
+import { apiRequest } from '@/lib/api';
 import type { Product } from '@/types';
-
-interface DigitalFile {
-  id: string;
-  file_name: string;
-  file_path: string;
-}
-
-interface ProductImage {
-  id: string;
-  image_url: string;
-  file_path: string;
-  is_primary: boolean;
-  display_order: number;
-}
 
 const productSchema = z.object({
   name: z.string().trim().min(1, 'Nome é obrigatório').max(200, 'Nome muito longo'),
   description: z.string().trim().max(1000, 'Descrição muito longa').optional(),
   price: z.number().min(0.01, 'Preço deve ser maior que zero'),
   category: z.enum(['digital', 'physical']),
+  book_category: z.string().trim().max(100, 'Categoria do livro muito longa').optional(),
+  image_url: z.string().optional(),
+  pdf_url: z.string().nullable().optional(),
+  pdf_file_name: z.string().nullable().optional(),
   age_range: z.string().trim().max(50, 'Faixa etária muito longa').optional(),
-  is_active: z.boolean(),
+  is_active: z.coerce.boolean(),
   discount_percent: z.number().min(0).max(100).default(0),
-  is_featured: z.boolean().default(false),
+  is_featured: z.coerce.boolean().default(false),
 });
 
-interface ProductFormProps {
-  product?: Product | null;
-  onSuccess: () => void;
-}
+type ProductFormData = z.infer<typeof productSchema>;
 
-export function ProductForm({ product, onSuccess }: ProductFormProps) {
+type CategoryOption = { id: number; name: string };
+
+export function ProductForm({ product, onSuccess }: { product?: Product | null, onSuccess: () => void }) {
   const queryClient = useQueryClient();
   const isEditing = !!product;
 
-  const [name, setName] = useState(product?.name || '');
-  const [description, setDescription] = useState(product?.description || '');
-  const [price, setPrice] = useState(product?.price?.toString() || '');
-  const [category, setCategory] = useState<'digital' | 'physical'>(product?.category || 'digital');
-  const [ageRange, setAgeRange] = useState(product?.age_range || '');
-  const [isActive, setIsActive] = useState(product?.is_active ?? true);
-  const [discountPercent, setDiscountPercent] = useState(product?.discount_percent?.toString() || '0');
-  const [isFeatured, setIsFeatured] = useState(product?.is_featured ?? false);
-  const [digitalFiles, setDigitalFiles] = useState<DigitalFile[]>([]);
-  const [productImages, setProductImages] = useState<ProductImage[]>([]);
-
-  // Fetch existing digital files for the product
-  const { data: existingFiles } = useQuery({
-    queryKey: ['digital-files', product?.id],
-    queryFn: async () => {
-      if (!product?.id) return [];
-      const { data, error } = await supabase
-        .from('digital_files')
-        .select('id, file_name, file_path')
-        .eq('product_id', product.id);
-      if (error) throw error;
-      return data as DigitalFile[];
-    },
-    enabled: !!product?.id,
-  });
-
-  // Fetch existing product images
-  const { data: existingImages } = useQuery({
-    queryKey: ['product-images', product?.id],
-    queryFn: async () => {
-      if (!product?.id) return [];
-      const { data, error } = await supabase
-        .from('product_images')
-        .select('id, image_url, file_path, is_primary, display_order')
-        .eq('product_id', product.id)
-        .order('display_order');
-      if (error) throw error;
-      return data as ProductImage[];
-    },
-    enabled: !!product?.id,
-  });
-
-  // Sync existing files to state
-  useEffect(() => {
-    if (existingFiles) {
-      setDigitalFiles(existingFiles);
-    }
-  }, [existingFiles]);
-
-  // Sync existing images to state
-  useEffect(() => {
-    if (existingImages) {
-      setProductImages(existingImages);
-    }
-  }, [existingImages]);
+  const [name, setName] = useState(product?.name ?? '');
+  const [description, setDescription] = useState(product?.description ?? '');
+  const [price, setPrice] = useState(product?.price ? String(product.price) : '');
+  const [category, setCategory] = useState<'digital' | 'physical'>(product?.category === 'physical' ? 'physical' : 'digital');
+  const [bookCategory, setBookCategory] = useState(product?.book_category ?? '');
+  const [availableCategories, setAvailableCategories] = useState<CategoryOption[]>([]);
+  const [ageRange, setAgeRange] = useState(product?.age_range ?? '');
+  const [isActive, setIsActive] = useState(Boolean(product?.is_active ?? true));
+  const [discountPercent, setDiscountPercent] = useState(product?.discount_percent ? String(product.discount_percent) : '0');
+  const [isFeatured, setIsFeatured] = useState(Boolean(product?.is_featured ?? false));
+  const [imageUrl, setImageUrl] = useState(product?.image_url ?? '');
+  const [pdfUrl, setPdfUrl] = useState(product?.pdf_url ?? '');
+  const [pdfFileName, setPdfFileName] = useState(product?.pdf_file_name ?? '');
 
   const mutation = useMutation({
-    mutationFn: async (data: z.infer<typeof productSchema>) => {
-      if (isEditing) {
-        const { error } = await supabase
-          .from('products')
-          .update({
-            name: data.name,
-            description: data.description || null,
-            price: data.price,
-            category: data.category,
-            age_range: data.age_range || null,
-            is_active: data.is_active,
-            discount_percent: data.discount_percent,
-            is_featured: data.is_featured,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', product.id);
-        
-        if (error) throw error;
-        return product.id;
-      } else {
-        const { data: newProduct, error } = await supabase
-          .from('products')
-          .insert({
-            name: data.name,
-            description: data.description || null,
-            price: data.price,
-            category: data.category,
-            age_range: data.age_range || null,
-            is_active: data.is_active,
-            discount_percent: data.discount_percent,
-            is_featured: data.is_featured,
-          })
-          .select('id')
-          .single();
-        
-        if (error) throw error;
-        return newProduct.id;
-      }
+    mutationFn: async (data: ProductFormData) => {
+      const endpoint = isEditing ? `/products/${product.id}` : `/products`;
+      const method = isEditing ? 'PUT' : 'POST';
+      return await apiRequest(endpoint, { method, body: JSON.stringify(data) });
     },
-    onSuccess: async (productId) => {
-      // For new products, save the temporary images and files to the database
-      if (!isEditing) {
-        try {
-          // Save temporary images
-          if (productImages.length > 0) {
-            for (let i = 0; i < productImages.length; i++) {
-              const img = productImages[i];
-              
-              if (img.file_path.startsWith('temp/')) {
-                const fileName = img.file_path.split('/').pop();
-                const newPath = `${productId}/${fileName}`;
-                
-                const { error: copyError } = await supabase.storage
-                  .from('product-images')
-                  .copy(img.file_path, newPath);
-                
-                if (copyError) {
-                  console.error('Error copying image:', copyError);
-                  continue;
-                }
-                
-                const { data: { publicUrl } } = supabase.storage
-                  .from('product-images')
-                  .getPublicUrl(newPath);
-                
-                await supabase.storage
-                  .from('product-images')
-                  .remove([img.file_path]);
-                
-                await supabase
-                  .from('product_images')
-                  .insert({
-                    product_id: productId,
-                    image_url: publicUrl,
-                    file_path: newPath,
-                    is_primary: img.is_primary,
-                    display_order: i,
-                  });
-
-                if (img.is_primary) {
-                  await supabase
-                    .from('products')
-                    .update({ image_url: publicUrl })
-                    .eq('id', productId);
-                }
-              }
-            }
-          }
-
-          // Save temporary digital files (PDFs)
-          if (digitalFiles.length > 0) {
-            for (const file of digitalFiles) {
-              if (file.file_path.startsWith('temp/')) {
-                const fileName = file.file_path.split('/').pop();
-                const newPath = `${productId}/${fileName}`;
-                
-                const { error: copyError } = await supabase.storage
-                  .from('digital-products')
-                  .copy(file.file_path, newPath);
-                
-                if (copyError) {
-                  console.error('Error copying file:', copyError);
-                  continue;
-                }
-                
-                await supabase.storage
-                  .from('digital-products')
-                  .remove([file.file_path]);
-                
-                await supabase
-                  .from('digital_files')
-                  .insert({
-                    product_id: productId,
-                    file_name: file.file_name,
-                    file_path: newPath,
-                  });
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error saving product files:', error);
-        }
-      }
-
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success(isEditing ? 'Produto atualizado!' : 'Produto criado!');
       onSuccess();
     },
-    onError: (error) => {
-      toast.error('Erro ao salvar produto: ' + error.message);
-    },
+    onError: (error: Error) => toast.error('Erro ao salvar produto: ' + error.message),
   });
+
+  useEffect(() => {
+    setName(product?.name ?? '');
+    setDescription(product?.description ?? '');
+    setPrice(product?.price ? String(product.price) : '');
+    setCategory(product?.category === 'physical' ? 'physical' : 'digital');
+    setBookCategory(product?.book_category ?? '');
+    setAgeRange(product?.age_range ?? '');
+    setIsActive(Boolean(product?.is_active ?? true));
+    setDiscountPercent(product?.discount_percent ? String(product.discount_percent) : '0');
+    setIsFeatured(Boolean(product?.is_featured ?? false));
+    setImageUrl(product?.image_url ?? '');
+    setPdfUrl(product?.pdf_url ?? '');
+    setPdfFileName(product?.pdf_file_name ?? '');
+  }, [product]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await apiRequest('/categories?limit=1000&offset=0');
+        const rawList = Array.isArray(data) ? data : data?.data || data?.rows || [];
+        const list: CategoryOption[] = rawList
+          .map((item: { id?: number | string; categoryId?: number | string; category_id?: number | string; name?: string }) => {
+            const idValue = Number(item.id ?? item.categoryId ?? item.category_id);
+            const nameValue = String(item.name ?? '').trim();
+            if (!Number.isInteger(idValue) || idValue <= 0 || !nameValue) {
+              return null;
+            }
+            return { id: idValue, name: nameValue };
+          })
+          .filter((item: CategoryOption | null): item is CategoryOption => item !== null);
+        setAvailableCategories(list);
+      } catch {
+        setAvailableCategories([]);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
+    const numericPrice = parseFloat(String(price).replace(',', '.'));
     const data = {
       name,
-      description: description || undefined,
-      price: parseFloat(price) || 0,
+      description,
+      price: numericPrice || 0,
       category,
-      age_range: ageRange || undefined,
-      is_active: isActive,
-      discount_percent: parseInt(discountPercent) || 0,
-      is_featured: isFeatured,
+      book_category: bookCategory || undefined,
+      image_url: imageUrl,
+      pdf_url: category === 'digital' ? (pdfUrl || null) : null,
+      pdf_file_name: category === 'digital' ? (pdfFileName || null) : null,
+      age_range: ageRange,
+      is_active: isActive, discount_percent: parseInt(discountPercent) || 0, is_featured: isFeatured,
     };
 
     try {
       const validated = productSchema.parse(data);
       mutation.mutate(validated);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        toast.error(err.errors[0].message);
-      }
+      if (err instanceof z.ZodError) toast.error(err.errors[0].message);
     }
   };
 
-  // Calculate discounted price preview
-  const currentPrice = parseFloat(price) || 0;
-  const discount = parseInt(discountPercent) || 0;
-  const discountedPrice = currentPrice * (1 - discount / 100);
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Nome do Produto *</Label>
-        <Input
-          id="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Ex: Livro de Animais para Colorir"
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="description">Descrição</Label>
-        <Textarea
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Descreva o produto..."
-          rows={3}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-2"><Label>Nome do Produto *</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
+      <div className="space-y-2"><Label>Descrição</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2"><Label>Preço (R$) *</Label><Input type="number" step="0.01" min="0.01" value={price} onChange={(e) => setPrice(e.target.value)} required /></div>
         <div className="space-y-2">
-          <Label htmlFor="price">Preço (R$) *</Label>
-          <Input
-            id="price"
-            type="number"
-            step="0.01"
-            min="0.01"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            placeholder="29.90"
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="category">Categoria *</Label>
-          <Select value={category} onValueChange={(v) => setCategory(v as 'digital' | 'physical')}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="digital">📱 Digital</SelectItem>
-              <SelectItem value="physical">📦 Físico</SelectItem>
-            </SelectContent>
+          <Label>Formato *</Label>
+          <Select value={category} onValueChange={(v: 'digital' | 'physical') => setCategory(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="digital">📱 Digital</SelectItem><SelectItem value="physical">📦 Físico</SelectItem></SelectContent>
           </Select>
         </div>
       </div>
 
-      {/* Discount Field */}
-      <div className="border rounded-lg p-4 bg-muted/30">
-        <div className="flex items-center gap-2 mb-3">
-          <Percent className="w-5 h-5 text-destructive" />
-          <Label className="text-base font-semibold">Desconto</Label>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="discount">Porcentagem de Desconto (%)</Label>
-            <Input
-              id="discount"
-              type="number"
-              min="0"
-              max="100"
-              value={discountPercent}
-              onChange={(e) => setDiscountPercent(e.target.value)}
-              placeholder="0"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Preço Final</Label>
-            <div className="h-10 px-3 py-2 border rounded-md bg-background flex items-center">
-              {discount > 0 ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground line-through text-sm">
-                    R$ {currentPrice.toFixed(2)}
-                  </span>
-                  <span className="font-bold text-destructive">
-                    R$ {discountedPrice.toFixed(2)}
-                  </span>
-                </div>
-              ) : (
-                <span className="font-medium">R$ {currentPrice.toFixed(2)}</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="space-y-2">
-        <Label htmlFor="age_range">Faixa Etária</Label>
-        <Input
-          id="age_range"
-          value={ageRange}
-          onChange={(e) => setAgeRange(e.target.value)}
-          placeholder="Ex: 3-6 anos"
+        <Label>Categoria de Livro</Label>
+        <Select value={bookCategory || 'none'} onValueChange={(v) => setBookCategory(v === 'none' ? '' : v)}>
+          <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sem categoria</SelectItem>
+            {availableCategories.map((cat) => (
+              <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div className="space-y-2">
+        <Label>Imagem do Produto</Label>
+        <SingleImageUpload 
+          currentImage={imageUrl} 
+          onImageChange={(url) => setImageUrl(url || '')} 
         />
       </div>
 
-      {/* Image Upload */}
-      <div className="border rounded-lg p-4">
-        <ImageUpload
-          productId={product?.id}
-          images={productImages}
-          onImagesChange={setProductImages}
-          disabled={mutation.isPending}
-        />
-      </div>
-
-      {/* Digital Files Upload - only show for digital products */}
       {category === 'digital' && (
-        <div className="border rounded-lg p-4">
-          <FileUpload
-            productId={product?.id}
-            existingFiles={digitalFiles}
-            onFilesChange={setDigitalFiles}
-            disabled={mutation.isPending}
+        <div className="space-y-2">
+          <Label>Arquivo PDF do Livro</Label>
+          <PdfUpload
+            currentPdf={pdfUrl}
+            currentFileName={pdfFileName}
+            onPdfChange={({ url, fileName }) => {
+              setPdfUrl(url || '');
+              setPdfFileName(fileName || '');
+            }}
           />
+          <p className="text-xs text-muted-foreground">
+            Importe o PDF do livro digital para liberar o download após a compra.
+          </p>
         </div>
       )}
 
-      {/* Featured Product Toggle */}
-      <div className="flex items-center justify-between border rounded-lg p-4 bg-accent/10">
-        <div className="flex items-center gap-3">
-          <Sparkles className="w-5 h-5 text-accent" />
-          <div>
-            <Label htmlFor="is_featured" className="text-base font-semibold">Produto em Destaque</Label>
-            <p className="text-sm text-muted-foreground">
-              Produtos em destaque aparecem com badge especial
-            </p>
-          </div>
-        </div>
-        <Switch
-          id="is_featured"
-          checked={isFeatured}
-          onCheckedChange={setIsFeatured}
-        />
-      </div>
-
-      <div className="flex items-center justify-between border rounded-lg p-4">
-        <div>
-          <Label htmlFor="is_active">Produto Ativo</Label>
-          <p className="text-sm text-muted-foreground">
-            Produtos inativos não aparecem na loja
-          </p>
-        </div>
-        <Switch
-          id="is_active"
-          checked={isActive}
-          onCheckedChange={setIsActive}
-        />
-      </div>
-
       <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onSuccess}>
-          Cancelar
-        </Button>
+        <Button type="button" variant="outline" onClick={onSuccess}>Cancelar</Button>
         <Button type="submit" disabled={mutation.isPending}>
-          {mutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          {isEditing ? 'Salvar Alterações' : 'Criar Produto'}
+          {mutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Salvar
         </Button>
       </div>
     </form>

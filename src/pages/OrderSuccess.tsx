@@ -1,218 +1,197 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Download, Loader2, AlertCircle } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { CheckCircle, AlertCircle, Clock, RefreshCw, ArrowLeft } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
+import { apiRequest } from '@/lib/api';
 import { toast } from 'sonner';
-
-interface DownloadItem {
-  id: string;
-  download_token: string;
-  download_count: number | null;
-  max_downloads: number | null;
-  expires_at: string;
-  product_id: string | null;
-  products: {
-    name: string;
-    category: string | null;
-  } | null;
-}
 
 const OrderSuccess = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get('order_id');
+  const paymentStatus = searchParams.get('status') || searchParams.get('collection_status');
+  const paymentId = searchParams.get('payment_id') || searchParams.get('collection_id');
   const { clearCart } = useCart();
-  const [downloads, setDownloads] = useState<DownloadItem[]>([]);
+
+  const [paymentInfo, setPaymentInfo] = useState<{ order_status?: string; latest_webhook?: { mercado_pago_status?: string; mercado_pago_id?: string; payer_email?: string; amount?: number } } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const hasClearedCartAfterApproval = useRef(false);
 
   useEffect(() => {
+    if (orderId) {
+      fetchPaymentStatus();
+      const interval = setInterval(fetchPaymentStatus, 3000);
+      const timeout = setTimeout(() => clearInterval(interval), 30000);
+      
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
+    }
+  }, [clearCart, orderId, paymentId]);
+
+  useEffect(() => {
+    const mpStatus = paymentInfo?.latest_webhook?.mercado_pago_status || paymentStatus;
+    const isApproved = mpStatus === 'approved' || paymentInfo?.order_status === 'paid';
+    if (!isApproved || hasClearedCartAfterApproval.current) {
+      return;
+    }
     clearCart();
-    
-    if (!orderId) {
-      setIsLoading(false);
-      return;
-    }
+    hasClearedCartAfterApproval.current = true;
+  }, [clearCart, paymentInfo, paymentStatus]);
 
-    let cancelled = false;
-    let attempts = 0;
-    const maxAttempts = 20; // ~40s
-
-    const fetchDownloads = async () => {
-      attempts += 1;
-
-      const { data, error } = await supabase
-        .from('downloads')
-        .select('*, products:product_id(name, category)')
-        .eq('order_id', orderId);
-
-      if (cancelled) return;
-
-      if (error) {
-        console.error('Error fetching downloads:', error);
-      }
-
-      const digitalDownloads = (data || []).filter(
-        (d: any) => d.products?.category === 'digital'
-      ) as DownloadItem[];
-
-      if (digitalDownloads.length > 0 || attempts >= maxAttempts) {
-        setDownloads(digitalDownloads);
-        setIsLoading(false);
-        return;
-      }
-    };
-
-    const interval = setInterval(fetchDownloads, 2000);
-    fetchDownloads();
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [orderId, clearCart]);
-
-  const handleDownload = async (download: DownloadItem) => {
-    if (!download.download_token) {
-      toast.error('Token de download não encontrado');
-      return;
-    }
-
-    setDownloadingId(download.id);
-
+  const fetchPaymentStatus = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('download-file', {
-        body: { token: download.download_token },
+      if (!orderId) return;
+      const query = paymentId ? `?payment_id=${encodeURIComponent(paymentId)}` : '';
+      
+      await apiRequest(`/orders/${orderId}/sync-payment${query}`).catch(err => {
+        console.log('Sincronização com Mercado Pago:', err);
       });
 
-      if (error) throw error;
+      const data = await apiRequest(`/orders/${orderId}/payment-status${query}`);
+      setPaymentInfo(data);
 
-      if (data?.url) {
-        // Open directly in new window - more reliable for downloads
-        window.open(data.url, '_blank');
-
-        toast.success(
-          data.remainingDownloads == null
-            ? 'Download iniciado! Downloads ilimitados.'
-            : `Download iniciado! Restam ${data.remainingDownloads} downloads.`
-        );
-        
-        // Update local download count
-        setDownloads(prev => 
-          prev.map(d => 
-            d.id === download.id 
-              ? { ...d, download_count: (d.download_count || 0) + 1 }
-              : d
-          )
-        );
-      } else if (data?.error) {
-        toast.error(data.error);
+      if (data?.latest_webhook?.mercado_pago_status === 'approved' && data?.order_status === 'pending') {
+        await apiRequest(`/orders/${orderId}/mark-paid`, { method: 'POST' }).catch(console.error);
       }
-    } catch (err: any) {
-      console.error('Download error:', err);
-      toast.error(err.message || 'Erro ao baixar arquivo');
-    } finally {
-      setDownloadingId(null);
+
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Erro ao buscar status:', error);
+      setIsLoading(false);
     }
   };
 
-  const getRemainingDownloads = (download: DownloadItem) => {
-    if (download.max_downloads == null) return null;
-    const max = download.max_downloads;
-    const used = download.download_count || 0;
-    return max - used;
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchPaymentStatus();
+    setIsRefreshing(false);
+    toast.success('Status atualizado!');
   };
 
-  const isExpired = (download: DownloadItem) => {
-    // Consider downloads with expiration > 50 years from now as "never expires"
-    const fiftyYearsFromNow = new Date();
-    fiftyYearsFromNow.setFullYear(fiftyYearsFromNow.getFullYear() + 50);
-    if (new Date(download.expires_at) > fiftyYearsFromNow) {
-      return false; // Never expires
-    }
-    return new Date(download.expires_at) < new Date();
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-lg w-full">
+          <CardHeader>
+            <Skeleton className="h-16 w-16 rounded-full mx-auto mb-4" />
+            <Skeleton className="h-8 w-48 mx-auto" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const mpStatus = paymentInfo?.latest_webhook?.mercado_pago_status || paymentStatus;
+  const orderStatus = paymentInfo?.order_status;
+  const isApproved = mpStatus === 'approved' || orderStatus === 'paid';
+  const isPending = mpStatus === 'pending';
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-lg w-full text-center shadow-playful">
         <CardHeader>
-          <CheckCircle className="w-16 h-16 text-accent mx-auto mb-4" />
-          <CardTitle className="text-2xl font-display">Compra Realizada! 🎉</CardTitle>
+          {isApproved ? (
+            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          ) : isPending ? (
+            <Clock className="w-16 h-16 text-yellow-500 animate-pulse mx-auto mb-4" />
+          ) : (
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          )}
+          <CardTitle className="text-2xl font-display">
+            {isApproved && 'Pagamento Aprovado ✅'}
+            {isPending && 'Processando Pagamento ⏳'}
+            {!isApproved && !isPending && 'Erro no Pagamento ❌'}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-muted-foreground">
-            Obrigado pela sua compra! Seus downloads estão disponíveis abaixo.
-          </p>
-          
-          {isLoading ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          {orderId && (
+            <div className="bg-muted p-3 rounded-lg">
+              <p className="text-sm text-muted-foreground">Pedido #</p>
+              <p className="text-lg font-bold text-primary">{orderId}</p>
             </div>
-          ) : downloads.length > 0 ? (
-            <div className="space-y-3">
-              {downloads.map((download) => {
-                const remaining = getRemainingDownloads(download);
-                const expired = isExpired(download);
-                const exhausted = remaining != null ? remaining <= 0 : false;
-                const disabled = expired || exhausted;
+          )}
 
-                return (
-                  <div 
-                    key={download.id} 
-                    className="p-3 border rounded-lg bg-card"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-left">
-                        <p className="font-medium text-sm">
-                          {download.products?.name || 'Produto Digital'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {expired ? (
-                            <span className="text-destructive">Link expirado</span>
-                          ) : exhausted ? (
-                            <span className="text-destructive">Downloads esgotados</span>
-                          ) : (
-                            remaining == null
-                              ? 'Downloads ilimitados'
-                              : `${remaining} downloads restantes`
-                          )}
-                        </p>
-                      </div>
-                      <Button 
-                        size="sm"
-                        disabled={disabled || downloadingId === download.id}
-                        onClick={() => handleDownload(download)}
-                      >
-                        {downloadingId === download.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : disabled ? (
-                          <AlertCircle className="w-4 h-4" />
-                        ) : (
-                          <Download className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+          {paymentInfo?.latest_webhook && (
+            <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg text-left space-y-2">
+              <p className="text-sm font-medium">Detalhes do Pagamento:</p>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li>
+                  <strong>Status:</strong> {paymentInfo.latest_webhook.mercado_pago_status}
+                </li>
+                {paymentInfo.latest_webhook.mercado_pago_id && (
+                  <li>
+                    <strong>ID:</strong> {paymentInfo.latest_webhook.mercado_pago_id}
+                  </li>
+                )}
+                {paymentInfo.latest_webhook.payer_email && (
+                  <li>
+                    <strong>Email:</strong> {paymentInfo.latest_webhook.payer_email}
+                  </li>
+                )}
+                <li>
+                  <strong>Valor:</strong> R$ {paymentInfo.latest_webhook.amount?.toFixed(2)}
+                </li>
+              </ul>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Você receberá um email com os links de download em breve.
-            </p>
+          )}
+
+          {isApproved && (
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+              <p className="text-sm text-green-700 dark:text-green-200">
+                Obrigado! Seu pagamento foi confirmado e seu pedido foi processado com sucesso.
+              </p>
+            </div>
           )}
           
-          <Button onClick={() => navigate('/')} className="w-full mt-4">
-            Voltar para a Loja
-          </Button>
+          {isPending && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+              <p className="text-sm text-yellow-700 dark:text-yellow-200">
+                Seu pagamento está sendo processado. Pode levar alguns momentos.
+              </p>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-4">
+            {!isApproved && (
+              <Button 
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                variant="outline"
+                className="flex-1"
+              >
+                {isRefreshing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Atualizando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Atualizar Status
+                  </>
+                )}
+              </Button>
+            )}
+            <Button onClick={() => navigate('/')} className="flex-1">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar para Loja
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
   );
+
 };
 
 export default OrderSuccess;

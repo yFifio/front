@@ -54,7 +54,6 @@ export function ProductDetailModal({
     }).format(price);
   };
 
-  // Get sorted images with primary first
   const images = product.images || [];
   const sortedImages = [...images].sort((a, b) => {
     if (a.is_primary && !b.is_primary) return -1;
@@ -84,12 +83,11 @@ export function ProductDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-5xl lg:max-w-7xl p-0 overflow-hidden max-h-[95vh] overflow-y-auto">
         <VisuallyHidden>
           <DialogTitle>{product.name}</DialogTitle>
         </VisuallyHidden>
         
-        {/* Close button for mobile */}
         <Button
           variant="secondary"
           size="icon"
@@ -100,8 +98,7 @@ export function ProductDetailModal({
         </Button>
         
         <div className="grid md:grid-cols-2 gap-0">
-          {/* Image Section */}
-          <div className="relative aspect-square md:aspect-auto bg-muted">
+          <div className="relative w-full h-full bg-muted">
             {currentImage ? (
               <img 
                 src={currentImage} 
@@ -114,7 +111,6 @@ export function ProductDetailModal({
               </div>
             )}
             
-            {/* Navigation Arrows */}
             {hasMultipleImages && (
               <>
                 <Button
@@ -136,7 +132,6 @@ export function ProductDetailModal({
               </>
             )}
             
-            {/* Image Thumbnails */}
             {hasMultipleImages && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 bg-background/80 backdrop-blur-sm rounded-full px-3 py-2">
                 {sortedImages.map((img, index) => (
@@ -159,7 +154,6 @@ export function ProductDetailModal({
               </div>
             )}
 
-            {/* Featured Badge */}
             {product.is_featured && (
               <Badge className="absolute top-4 left-4 bg-accent text-accent-foreground font-bold text-sm px-3 py-1">
                 <Sparkles className="w-4 h-4 mr-1" />
@@ -167,7 +161,6 @@ export function ProductDetailModal({
               </Badge>
             )}
 
-            {/* Discount Badge */}
             {hasDiscount && (
               <Badge className="absolute top-4 right-4 bg-destructive text-destructive-foreground font-bold text-lg px-3 py-1">
                 -{product.discount_percent}%
@@ -175,9 +168,7 @@ export function ProductDetailModal({
             )}
           </div>
 
-          {/* Content Section */}
           <div className="p-4 md:p-6 flex flex-col">
-            {/* Category & Age */}
             <div className="flex items-center gap-2 mb-4">
               <Badge className={`${config.bgClass} ${config.textClass} font-bold`}>
                 {config.label}
@@ -189,12 +180,15 @@ export function ProductDetailModal({
               )}
             </div>
 
-            {/* Title */}
+            <p className="text-sm text-muted-foreground mb-3">
+              <span className="font-semibold text-foreground">Categoria do livro:</span>{' '}
+              {product.book_category?.trim() || 'Sem categoria'}
+            </p>
+
             <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground font-display mb-4 leading-tight">
               {product.name}
             </h2>
 
-            {/* Rating */}
             <div className="flex items-center gap-1 mb-4">
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star 
@@ -205,7 +199,6 @@ export function ProductDetailModal({
               <span className="text-sm text-muted-foreground ml-2">(Novo!)</span>
             </div>
 
-            {/* Description */}
             <div className="flex-1 mb-6">
               {product.description ? (
                 <p className="text-muted-foreground leading-relaxed">
@@ -218,7 +211,6 @@ export function ProductDetailModal({
               )}
             </div>
 
-            {/* Delivery Info */}
             <div className="bg-muted/50 rounded-lg p-4 mb-6">
               <p className="text-sm text-muted-foreground">
                 {product.category === 'digital' ? (
@@ -235,7 +227,6 @@ export function ProductDetailModal({
               </p>
             </div>
 
-            {/* Price & Add to Cart */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t">
               <div className="flex flex-col">
                 {hasDiscount ? (

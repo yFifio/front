@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Upload, X, Loader2, ImageIcon } from 'lucide-react';
@@ -14,6 +13,48 @@ export function SingleImageUpload({ currentImage, onImageChange, disabled }: Sin
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const resizeImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
+          } else {
+            reject(new Error('Erro ao processar imagem'));
+          }
+        };
+        img.onerror = (error) => reject(error);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -25,37 +66,23 @@ export function SingleImageUpload({ currentImage, onImageChange, disabled }: Sin
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Imagem muito grande. Máximo: 5MB');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Imagem muito grande. Máximo: 10MB');
       return;
     }
 
     setUploading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `popups/${crypto.randomUUID()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(fileName);
-
-      onImageChange(publicUrl);
-      toast.success('Imagem enviada!');
-    } catch (error: any) {
+      const resizedImage = await resizeImage(file);
+      onImageChange(resizedImage);
+      toast.success('Imagem processada com sucesso!');
+    } catch (error) {
       console.error('Upload error:', error);
-      toast.error('Erro ao enviar imagem');
+      toast.error(error instanceof Error ? error.message : 'Erro ao processar imagem');
     } finally {
       setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 

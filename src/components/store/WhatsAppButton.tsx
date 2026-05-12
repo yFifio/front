@@ -2,13 +2,12 @@ import { MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface WhatsAppButtonProps {
-  phoneNumber: string;
+  phoneNumber?: string;
   message?: string;
 }
 
-export function WhatsAppButton({ phoneNumber, message = 'Olá! Preciso de ajuda.' }: WhatsAppButtonProps) {
-  // Clean phone number - remove all non-digits
-  const cleanNumber = phoneNumber.replace(/\D/g, '');
+export function WhatsAppButton({ message = 'Olá! Preciso de ajuda.' }: WhatsAppButtonProps) {
+  const cleanNumber = '5544999043230';
   
   const handleClick = () => {
     const encodedMessage = encodeURIComponent(message);

@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { apiRequest } from '@/lib/api';
+
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,12 +14,18 @@ import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Loader2, ShoppingBag, CreditCard } from 'lucide-react';
 import { z } from 'zod';
 import DeliveryAddressForm from '@/components/checkout/DeliveryAddressForm';
-import { PopupManager } from '@/components/store/PopupManager';
+import { validarCPF } from '@/lib/validators';
 
 const checkoutSchema = z.object({
-  email: z.string().email('Email inválido'),
+  email: z.string().email('Formato de e-mail inválido'),
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
+  cpf: z.string().refine((value) => {
+    const clean = value.replace(/\D/g, '');
+    return clean.length === 11 && validarCPF(clean);
+  }, 'CPF inválido'),
 });
+
+const emailSchema = z.string().email('Formato de e-mail inválido');
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -27,18 +35,35 @@ const Checkout = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState(user?.email || '');
   const [name, setName] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string>('');
+  const [cpfError, setCpfError] = useState<string>('');
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'mercado_pago' | 'illustrative'>('mercado_pago');
   
-  // Delivery address fields
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryCity, setDeliveryCity] = useState('');
   const [deliveryState, setDeliveryState] = useState('');
   const [deliveryZip, setDeliveryZip] = useState('');
   const [deliveryPhone, setDeliveryPhone] = useState('');
 
-  // Check if cart has physical products
   const hasPhysicalProducts = useMemo(() => {
     return items.some(item => item.product.category === 'physical');
   }, [items]);
+
+  const subtotal = useMemo(() => getTotalPrice(), [getTotalPrice, items]);
+  const couponDiscountAmount = useMemo(() => {
+    if (!appliedCoupon) return 0;
+    return Number(((subtotal * appliedCoupon.discount) / 100).toFixed(2));
+  }, [subtotal, appliedCoupon]);
+  const finalTotal = useMemo(() => Number(Math.max(0, subtotal - couponDiscountAmount).toFixed(2)), [subtotal, couponDiscountAmount]);
+
+  const getEffectiveUnitPrice = (item: (typeof items)[number]) => {
+    const itemDiscount = item.product.discount_percent || 0;
+    return Number((item.product.price * (1 - itemDiscount / 100)).toFixed(2));
+  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -47,14 +72,13 @@ const Checkout = () => {
     }).format(price);
   };
 
-  // Require login to checkout
   if (!user) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
         <span className="text-6xl mb-4">🔐</span>
         <h1 className="text-2xl font-bold font-display mb-2">Login necessário</h1>
         <p className="text-muted-foreground mb-6 text-center">
-          Você precisa estar logado para finalizar sua compra.
+          Você precisa estar logado para finalizar seu pedido.
         </p>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => navigate('/')}>
@@ -87,86 +111,152 @@ const Checkout = () => {
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
-      checkoutSchema.parse({ email, name });
+      checkoutSchema.parse({ email, name, cpf });
+      setEmailError('');
+      setCpfError('');
     } catch (err) {
       if (err instanceof z.ZodError) {
+        const first = err.errors[0];
+        if (first?.path?.[0] === 'email') setEmailError(first.message);
+        if (first?.path?.[0] === 'cpf') setCpfError(first.message);
         toast.error(err.errors[0].message);
         return;
       }
     }
 
-    // Validate delivery address for physical products
     if (hasPhysicalProducts) {
       if (!deliveryAddress || !deliveryCity || !deliveryState || !deliveryZip || !deliveryPhone) {
         toast.error('Preencha todos os campos de endereço para produtos físicos');
         return;
       }
     }
-    
+
     setIsLoading(true);
-    
+    setPaymentError(null);
+
     try {
-      // Create the order via secure edge function (validates prices server-side)
-      const { data: orderData, error: orderError } = await supabase.functions.invoke(
-        'create-order',
-        {
-          body: {
-            items: items.map(item => ({
-              productId: item.product.id,
-              quantity: item.quantity,
-            })),
-            customerEmail: email,
-            customerName: name,
-            customerId: user?.id || null,
-            ...(hasPhysicalProducts && {
-              deliveryAddress: {
-                address: deliveryAddress,
-                city: deliveryCity,
-                state: deliveryState,
-                zip: deliveryZip,
-                phone: deliveryPhone,
-              },
-            }),
-          },
-        }
-      );
-      
-      if (orderError) throw orderError;
-      if (orderData?.error) throw new Error(orderData.error);
-      
-      // Call edge function to create Mercado Pago payment using validated order data
-      const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
-        'create-mercado-pago-payment',
-        {
-          body: {
-            orderId: orderData.orderId,
-            items: orderData.items, // Use server-validated items with correct prices
-            payer: {
-              email: email,
-              name: name,
-            },
-          },
-        }
-      );
-      
-      if (paymentError) throw paymentError;
-      
-      if (paymentData?.init_point) {
-        // Use init_point for production payments
-        clearCart();
-        window.location.href = paymentData.init_point;
-      } else {
-        throw new Error('Erro ao criar pagamento');
+      const payload: {
+        items: Array<{ productId: string; productName: string; price: number; quantity: number }>;
+        customerEmail: string;
+        customerName: string;
+        customerCpf: string;
+        customerId: number | null;
+        totalPrice: number;
+        paymentMethod: 'mercado_pago' | 'illustrative';
+        couponCode?: string;
+        deliveryAddress?: { address: string; city: string; state: string; zip: string; phone: string };
+      } = {
+        items: items.map(item => ({
+          productId: item.product.id,
+          productName: item.product.name,
+          price: getEffectiveUnitPrice(item),
+          quantity: item.quantity,
+        })),
+        customerEmail: email,
+        customerName: name,
+        customerCpf: cpf,
+        customerId: user?.id || null,
+        totalPrice: finalTotal,
+        paymentMethod,
+        couponCode: appliedCoupon?.code || undefined,
+      };
+      if (hasPhysicalProducts) {
+        payload.deliveryAddress = {
+          address: deliveryAddress,
+          city: deliveryCity,
+          state: deliveryState,
+          zip: deliveryZip,
+          phone: deliveryPhone,
+        };
       }
-      
+
+      const data = await apiRequest('/orders', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      if (data?.mode === 'mock' || data?.mode === 'illustrative') {
+        toast.info('✅ Pagamento confirmado no site. Processando pedido...');
+        await new Promise(r => setTimeout(r, 1500));
+        
+        clearCart();
+        if (data?.warning) {
+          toast.error('⚠️ ' + data.warning);
+        }
+        navigate(`/order-success?order_id=${data.orderId}`);
+        return;
+      }
+
+      if (data?.init_point) {
+        toast.success('Redirecionando para o Mercado Pago...');
+        window.open(data.init_point, '_blank'); // Abre o sandbox do Mercado Pago em uma nova guia
+        return;
+      }
+
+      if (data?.orderId) {
+        clearCart();
+        if (data?.warning) {
+          toast.error('⚠️ ' + data.warning);
+        }
+        navigate(`/order-success?order_id=${data.orderId}`);
+        return;
+      }
+
+      throw new Error('Erro ao criar pedido');
     } catch (error) {
       console.error('Checkout error:', error);
-      toast.error('Erro ao processar pedido. Tente novamente.');
+      const errorMsg = error instanceof Error ? error.message : 'Erro ao processar pedido. Tente novamente.';
+      setPaymentError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const applyCoupon = async () => {
+    const normalized = couponCode.trim().toUpperCase();
+    if (!normalized) {
+      toast.error('Digite um código de cupom');
+      return;
+    }
+    try {
+      const data = await apiRequest('/coupons/validate', {
+        method: 'POST',
+        body: JSON.stringify({ code: normalized }),
+      });
+      setAppliedCoupon({ code: data.code, discount: Number(data.discount || 0) });
+      toast.success(`Cupom ${data.code} aplicado (${data.discount}% OFF)`);
+    } catch (error) {
+      setAppliedCoupon(null);
+      toast.error(error instanceof Error ? error.message : 'Cupom inválido');
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+  };
+
+  const validateEmailField = (value: string) => {
+    const result = emailSchema.safeParse(value);
+    setEmailError(result.success ? '' : result.error.errors[0]?.message || 'Email inválido');
+  };
+
+  const validateCpfField = (value: string) => {
+    const clean = value.replace(/\D/g, '');
+    if (!clean) {
+      setCpfError('CPF é obrigatório');
+      return;
+    }
+
+    if (clean.length !== 11 || !validarCPF(clean)) {
+      setCpfError('CPF inválido');
+      return;
+    }
+
+    setCpfError('');
   };
 
   return (
@@ -176,13 +266,12 @@ const Checkout = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-xl font-bold font-display">Finalizar Compra</h1>
+          <h1 className="text-xl font-bold font-display">Finalizar Pedido</h1>
         </div>
       </header>
       
       <main className="container py-8">
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Order Summary */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-display">
@@ -211,23 +300,58 @@ const Checkout = () => {
                     <p className="text-muted-foreground text-xs">Qtd: {item.quantity}</p>
                   </div>
                   <span className="font-bold text-primary">
-                    {formatPrice(item.product.price * item.quantity)}
+                    {formatPrice(getEffectiveUnitPrice(item) * item.quantity)}
                   </span>
                 </div>
               ))}
               
               <Separator />
+
+              <div className="space-y-3">
+                <Label htmlFor="coupon">Cupom de desconto</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="coupon"
+                    type="text"
+                    placeholder="Ex: LIVRO10"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  />
+                  <Button type="button" variant="outline" onClick={applyCoupon}>
+                    Aplicar
+                  </Button>
+                </div>
+                {appliedCoupon && (
+                  <div className="flex items-center justify-between rounded-md border p-2 text-sm">
+                    <span>Cupom aplicado: <strong>{appliedCoupon.code}</strong> ({appliedCoupon.discount}%)</span>
+                    <Button type="button" variant="ghost" onClick={removeCoupon}>Remover</Button>
+                  </div>
+                )}
+              </div>
+
+              <Separator />
               
               <div className="flex justify-between items-center">
-                <span className="font-bold text-lg font-display">Total:</span>
+                <span className="font-medium">Subtotal:</span>
+                <span className="font-medium">{formatPrice(subtotal)}</span>
+              </div>
+
+              {appliedCoupon && (
+                <div className="flex justify-between items-center text-green-600">
+                  <span>Desconto ({appliedCoupon.discount}%):</span>
+                  <span>- {formatPrice(couponDiscountAmount)}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-lg font-display">Total final:</span>
                 <span className="font-bold text-2xl text-primary font-display">
-                  {formatPrice(getTotalPrice())}
+                  {formatPrice(finalTotal)}
                 </span>
               </div>
             </CardContent>
           </Card>
           
-          {/* Checkout Form */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-display">
@@ -248,6 +372,23 @@ const Checkout = () => {
                     required
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cpf">CPF</Label>
+                  <Input 
+                    id="cpf"
+                    type="text"
+                    placeholder="000.000.000-00"
+                    value={cpf}
+                    onChange={(e) => {
+                      setCpf(e.target.value);
+                      if (cpfError) validateCpfField(e.target.value);
+                    }}
+                    onBlur={(e) => validateCpfField(e.target.value)}
+                    required
+                  />
+                  {cpfError && <p className="text-xs text-destructive">{cpfError}</p>}
+                </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -256,9 +397,14 @@ const Checkout = () => {
                     type="email"
                     placeholder="seu@email.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (emailError) validateEmailField(e.target.value);
+                    }}
+                    onBlur={(e) => validateEmailField(e.target.value)}
                     required
                   />
+                  {emailError && <p className="text-xs text-destructive">{emailError}</p>}
                   <p className="text-xs text-muted-foreground">
                     {hasPhysicalProducts 
                       ? 'Preencha o endereço de entrega abaixo para produtos físicos.'
@@ -266,7 +412,6 @@ const Checkout = () => {
                   </p>
                 </div>
                 
-                {/* Delivery Address Form - Only for physical products */}
                 {hasPhysicalProducts && (
                   <DeliveryAddressForm
                     address={deliveryAddress}
@@ -285,19 +430,48 @@ const Checkout = () => {
                 <Separator />
                 
                 <div className="bg-muted p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <img 
-                      src="https://logospng.org/download/mercado-pago/logo-mercado-pago-icone-1024.png" 
-                      alt="Mercado Pago"
-                      className="w-8 h-8"
-                    />
-                    <span className="font-medium">Pagamento via Mercado Pago</span>
+                  <p className="text-sm font-medium mb-3">Forma de pagamento</p>
+                  <div className="space-y-2 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('mercado_pago')}
+                      className={`w-full text-left p-3 rounded-md border transition-colors ${paymentMethod === 'mercado_pago' ? 'border-primary bg-primary/5' : 'border-border bg-background'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <img 
+                          src="https://logospng.org/download/mercado-pago/logo-mercado-pago-icone-1024.png" 
+                          alt="Mercado Pago"
+                          className="w-7 h-7"
+                        />
+                        <span className="font-medium">Mercado Pago</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Cartão, Pix, débito ou boleto.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('illustrative')}
+                      className={`w-full text-left p-3 rounded-md border transition-colors ${paymentMethod === 'illustrative' ? 'border-primary bg-primary/5' : 'border-border bg-background'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">💳</span>
+                        <span className="font-medium">Pagamento via Site</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Confirmação online diretamente no site.
+                      </p>
+                    </button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Pague com cartão de crédito, débito, Pix ou boleto. 
-                    Ambiente 100% seguro.
-                  </p>
                 </div>
+
+                {paymentError && (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                    <p className="text-sm text-red-600 dark:text-red-400 font-medium">Erro no pagamento:</p>
+                    <p className="text-xs text-red-500 dark:text-red-300 mt-1">{paymentError}</p>
+                  </div>
+                )}
                 
                 <Button 
                   type="submit"
@@ -311,17 +485,18 @@ const Checkout = () => {
                     </>
                   ) : (
                     <>
-                      Pagar {formatPrice(getTotalPrice())}
+                      {paymentMethod === 'illustrative' ? 'Pagar via site' : `Pagar ${formatPrice(finalTotal)}`}
                     </>
                   )}
                 </Button>
               </form>
+
+
             </CardContent>
           </Card>
         </div>
       </main>
       
-      <PopupManager type="funnel" />
     </div>
   );
 };

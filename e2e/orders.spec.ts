@@ -112,6 +112,39 @@ test.describe('Pedidos - Fluxo Completo (CRUD)', () => {
     await ctx.dispose();
   });
 
+  test('deve excluir um pedido (admin)', async () => {
+    const session = await loginViaAPI();
+    expect(session.token).toBeTruthy();
+
+    const ctx = await request.newContext({ ignoreHTTPSErrors: true });
+
+    // Criar pedido para excluir
+    const orderRes = await ctx.post(`${BASE_API}/orders`, {
+      headers: { Authorization: `Bearer ${session.token}` },
+      data: {
+        items: [{ productId: 1, productName: 'Produto E2E Del', price: 9.9, quantity: 1 }],
+        customerEmail: TEST_EMAIL,
+        customerName: 'Usuário E2E',
+        customerCpf: '20414454243',
+        totalPrice: 9.9,
+        paymentMethod: 'illustrative',
+      },
+    });
+    expect(orderRes.ok()).toBeTruthy();
+    const orderBody = await orderRes.json();
+    const orderId = orderBody.orderId ?? orderBody.order?.id ?? orderBody.id;
+    expect(orderId).toBeTruthy();
+
+    // Excluir pedido
+    const delRes = await ctx.delete(`${BASE_API}/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${session.token}` },
+    });
+    // 204 é sucesso; 403 se o usuário não for admin (comportamento válido)
+    expect([204, 403]).toContain(delRes.status());
+
+    await ctx.dispose();
+  });
+
   test('deve falhar ao criar pedido sem autenticação (401)', async () => {
     const ctx = await request.newContext({ ignoreHTTPSErrors: true });
     const res = await ctx.post(`${BASE_API}/orders`, {

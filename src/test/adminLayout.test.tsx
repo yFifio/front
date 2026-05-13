@@ -9,10 +9,10 @@ const navigateMock = vi.fn();
 const signOutMock = vi.fn();
 
 let mockAuthState: {
-  user: { id: number; nome: string; email: string } | null;
+  user: { id: number; nome: string; email: string; isAdmin: boolean } | null;
   isLoading: boolean;
 } = {
-  user: { id: 1, nome: 'Admin Teste', email: 'admin@teste.com' },
+  user: { id: 1, nome: 'Admin Teste', email: 'admin@teste.com', isAdmin: true },
   isLoading: false,
 };
 
@@ -36,7 +36,7 @@ describe('AdminLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAuthState = {
-      user: { id: 1, nome: 'Admin Teste', email: 'admin@teste.com' },
+      user: { id: 1, nome: 'Admin Teste', email: 'admin@teste.com', isAdmin: true },
       isLoading: false,
     };
   });

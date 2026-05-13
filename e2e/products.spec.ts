@@ -146,4 +146,30 @@ test.describe('Produtos - CRUD Completo (Admin)', () => {
 
     expect(delRes.ok()).toBeTruthy();
   });
+
+  test('deve falhar ao criar produto sem autenticação (401)', async ({ request }) => {
+    const res = await request.post(`${BASE_API}/products`, {
+      ignoreHTTPSErrors: true,
+      data: {
+        name: 'Produto sem auth',
+        description: 'Não deve ser criado',
+        price: 10.0,
+        category: 'digital',
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('deve falhar ao criar produto com dados inválidos (400)', async ({ request }) => {
+    const res = await request.post(`${BASE_API}/products`, {
+      ignoreHTTPSErrors: true,
+      headers: { Authorization: `Bearer ${adminToken}` },
+      data: {
+        // name ausente — campo obrigatório
+        description: 'Produto sem nome',
+        price: -1,
+      },
+    });
+    expect([400, 422]).toContain(res.status());
+  });
 });

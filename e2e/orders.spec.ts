@@ -111,4 +111,37 @@ test.describe('Pedidos - Fluxo Completo (CRUD)', () => {
 
     await ctx.dispose();
   });
+
+  test('deve falhar ao criar pedido sem autenticação (401)', async () => {
+    const ctx = await request.newContext({ ignoreHTTPSErrors: true });
+    const res = await ctx.post(`${BASE_API}/orders`, {
+      data: {
+        items: [{ productId: 1, productName: 'Produto', price: 19.9, quantity: 1 }],
+        customerEmail: 'test@test.com',
+        customerName: 'Teste',
+        customerCpf: '00000000000',
+        totalPrice: 19.9,
+        paymentMethod: 'illustrative',
+      },
+    });
+    expect(res.status()).toBe(401);
+    await ctx.dispose();
+  });
+
+  test('deve falhar ao criar pedido com dados inválidos (400)', async () => {
+    const session = await loginViaAPI();
+    expect(session.token).toBeTruthy();
+
+    const ctx = await request.newContext({ ignoreHTTPSErrors: true });
+    const res = await ctx.post(`${BASE_API}/orders`, {
+      headers: { Authorization: `Bearer ${session.token}` },
+      data: {
+        // items ausente — campo obrigatório
+        customerEmail: 'test@test.com',
+        totalPrice: -1,
+      },
+    });
+    expect([400, 422]).toContain(res.status());
+    await ctx.dispose();
+  });
 });

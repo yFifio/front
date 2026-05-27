@@ -63,9 +63,12 @@ test.beforeAll(async () => {
 });
 
 test.describe('Produtos - CRUD Completo (Admin)', () => {
-  test('deve criar um novo produto', async ({ request }) => {
+  // ─── Cenário único: cadastrar → listar → editar → excluir ──────────────────
+  test('deve cadastrar, listar, editar e excluir um produto no mesmo cenário', async ({ request }) => {
     const productName = `Produto E2E ${Date.now()}`;
-    const res = await request.post(`${BASE_API}/products`, {
+
+    // 1. CADASTRAR
+    const createRes = await request.post(`${BASE_API}/products`, {
       ignoreHTTPSErrors: true,
       headers: { Authorization: `Bearer ${adminToken}` },
       data: {
@@ -75,78 +78,53 @@ test.describe('Produtos - CRUD Completo (Admin)', () => {
         category: 'digital',
       },
     });
+    expect(createRes.ok()).toBeTruthy();
+    const createBody = await createRes.json();
+    const productId = createBody?.id ?? createBody?.product?.id;
+    expect(productId).toBeTruthy();
 
-    expect(res.ok()).toBeTruthy();
-    const payload = await res.json();
-    expect(payload?.id ?? payload?.product?.id).toBeTruthy();
-  });
-
-  test('deve listar produtos existentes', async ({ request }) => {
-    const res = await request.get(`${BASE_API}/products`, { ignoreHTTPSErrors: true });
-    expect(res.ok()).toBeTruthy();
-
-    const payload = await res.json();
-    const list = Array.isArray(payload) ? payload : (payload?.data ?? payload?.rows ?? []);
+    // 2. LISTAR — verificar que o produto criado aparece na listagem
+    const listRes = await request.get(`${BASE_API}/products`, { ignoreHTTPSErrors: true });
+    expect(listRes.ok()).toBeTruthy();
+    const listPayload = await listRes.json();
+    const list: Array<{ id: number }> = Array.isArray(listPayload)
+      ? listPayload
+      : (listPayload?.data ?? listPayload?.rows ?? []);
     expect(Array.isArray(list)).toBeTruthy();
-  });
+    expect(list.some((p) => p.id === productId)).toBeTruthy();
 
-  test('deve editar um produto existente', async ({ request }) => {
-    const created = await request.post(`${BASE_API}/products`, {
-      ignoreHTTPSErrors: true,
-      headers: { Authorization: `Bearer ${adminToken}` },
-      data: {
-        name: `Editar E2E ${Date.now()}`,
-        description: 'Produto para editar',
-        price: 19.9,
-        category: 'digital',
-      },
-    });
-
-    expect(created.ok()).toBeTruthy();
-    const createdBody = await created.json();
-    const id = createdBody?.id ?? createdBody?.product?.id;
-    expect(id).toBeTruthy();
-
-    const updatedName = `Editado ${Date.now()}`;
-    const updateRes = await request.put(`${BASE_API}/products/${id}`, {
+    // 3. EDITAR
+    const updatedName = `Editado E2E ${Date.now()}`;
+    const updateRes = await request.put(`${BASE_API}/products/${productId}`, {
       ignoreHTTPSErrors: true,
       headers: { Authorization: `Bearer ${adminToken}` },
       data: {
         name: updatedName,
-        description: 'Produto editado',
+        description: 'Produto editado via E2E',
         price: 29.9,
         category: 'digital',
       },
     });
-
     expect(updateRes.ok()).toBeTruthy();
-  });
 
-  test('deve excluir um produto', async ({ request }) => {
-    const created = await request.post(`${BASE_API}/products`, {
-      ignoreHTTPSErrors: true,
-      headers: { Authorization: `Bearer ${adminToken}` },
-      data: {
-        name: `Excluir E2E ${Date.now()}`,
-        description: 'Produto para excluir',
-        price: 9.9,
-        category: 'digital',
-      },
-    });
-
-    expect(created.ok()).toBeTruthy();
-    const createdBody = await created.json();
-    const id = createdBody?.id ?? createdBody?.product?.id;
-    expect(id).toBeTruthy();
-
-    const delRes = await request.delete(`${BASE_API}/products/${id}`, {
+    // 4. EXCLUIR
+    const delRes = await request.delete(`${BASE_API}/products/${productId}`, {
       ignoreHTTPSErrors: true,
       headers: { Authorization: `Bearer ${adminToken}` },
     });
-
     expect(delRes.ok()).toBeTruthy();
+
+    // 5. CONFIRMAR EXCLUSÃO — produto não deve mais aparecer
+    const afterListRes = await request.get(`${BASE_API}/products`, { ignoreHTTPSErrors: true });
+    expect(afterListRes.ok()).toBeTruthy();
+    const afterPayload = await afterListRes.json();
+    const afterList: Array<{ id: number }> = Array.isArray(afterPayload)
+      ? afterPayload
+      : (afterPayload?.data ?? afterPayload?.rows ?? []);
+    expect(afterList.some((p) => p.id === productId)).toBeFalsy();
   });
 
+  // ─── Casos de falha ─────────────────────────────────────────────────────────
   test('deve falhar ao criar produto sem autenticação (401)', async ({ request }) => {
     const res = await request.post(`${BASE_API}/products`, {
       ignoreHTTPSErrors: true,
@@ -160,7 +138,7 @@ test.describe('Produtos - CRUD Completo (Admin)', () => {
     expect(res.status()).toBe(401);
   });
 
-  test('deve falhar ao criar produto com dados inválidos (400)', async ({ request }) => {
+  test('deve falhar ao criar produto com dados inválidos — name ausente (400)', async ({ request }) => {
     const res = await request.post(`${BASE_API}/products`, {
       ignoreHTTPSErrors: true,
       headers: { Authorization: `Bearer ${adminToken}` },
@@ -171,5 +149,22 @@ test.describe('Produtos - CRUD Completo (Admin)', () => {
       },
     });
     expect([400, 422]).toContain(res.status());
+  });
+
+  test('deve falhar ao editar produto inexistente (404)', async ({ request }) => {
+    const res = await request.put(`${BASE_API}/products/999999`, {
+      ignoreHTTPSErrors: true,
+      headers: { Authorization: `Bearer ${adminToken}` },
+      data: { name: 'Inexistente', price: 1, category: 'digital' },
+    });
+    expect([404, 400]).toContain(res.status());
+  });
+
+  test('deve falhar ao excluir produto inexistente (404)', async ({ request }) => {
+    const res = await request.delete(`${BASE_API}/products/999999`, {
+      ignoreHTTPSErrors: true,
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    expect([404, 400]).toContain(res.status());
   });
 });

@@ -52,6 +52,7 @@ test.beforeAll(async () => {
 
 // ─── CRUD completo via UI: cadastrar → listar → editar → excluir ─────────────
 test.describe('Produtos - CRUD Completo via UI (Admin)', () => {
+  // [RUBRICA: E2E_CRUD_1_PRODUTOS_SUCESSO_COMPLETO]
   test('deve cadastrar, listar, editar e excluir um produto no mesmo cenário', async ({ page }) => {
     // 1. LOGIN via interface gráfica
     await page.goto('/auth');
@@ -111,6 +112,7 @@ test.describe('Produtos - CRUD Completo via UI (Admin)', () => {
     await expect(page.getByText(updatedName)).not.toBeVisible({ timeout: 10000 });
   });
 
+  // [RUBRICA: E2E_CRUD_1_PRODUTOS_FALHAS]
   // ─── Casos de falha (validados via API — testam comportamento do servidor) ──
   test('deve falhar ao criar produto sem autenticação (401)', async ({ request }) => {
     const res = await request.post(`${BASE_API}/products`, {

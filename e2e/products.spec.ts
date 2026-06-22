@@ -15,7 +15,7 @@ function gerarCpfValido(seed: number): string {
 let adminEmail = '';
 let adminToken = '';
 
-// ─── Setup: criar e promover utilizador admin via API ────────────────────────
+
 test.beforeAll(async () => {
   const seed = Date.now();
   adminEmail = `admin_ui_${seed}@teste.local`;
@@ -50,43 +50,44 @@ test.beforeAll(async () => {
   await ctx.dispose();
 });
 
-// ─── CRUD completo via UI: cadastrar → listar → editar → excluir ─────────────
+
 test.describe('Produtos - CRUD Completo via UI (Admin)', () => {
-  // [RUBRICA: E2E_CRUD_1_PRODUTOS_SUCESSO_COMPLETO]
-  test('deve cadastrar, listar, editar e excluir um produto no mesmo cenário', async ({ page }) => {
-    // 1. LOGIN via interface gráfica
+  
+  
+  test('deve executar CRUD completo de produto com sucesso e falhas no mesmo cenário', async ({ page, request }) => {
+    
     await page.goto('/auth');
     await page.locator('#login-email').fill(adminEmail);
     await page.locator('#login-password').fill(ADMIN_PASSWORD);
     await page.getByRole('button', { name: /Entrar/i }).click();
     await expect(page).toHaveURL('/', { timeout: 10000 });
 
-    // 2. NAVEGAR para painel de produtos
+    
     await page.goto('/admin/products');
     await expect(page.getByRole('heading', { name: /Produtos/i })).toBeVisible({ timeout: 8000 });
 
-    // 3. CADASTRAR — clicar em "Novo Produto" e preencher formulário
+    
     await page.getByRole('button', { name: /Novo Produto/i }).click();
     await expect(page).toHaveURL(/\/admin\/products\/new/, { timeout: 8000 });
 
     const productName = `Produto UI E2E ${Date.now()}`;
     await page.getByRole('textbox').first().fill(productName);
     await page.locator('input[type="number"]').first().fill('49.90');
-    // Selector "Formato" já pré-seleccionado como "Digital" — manter como está
+    
     await page.getByRole('button', { name: /Salvar/i }).click();
 
-    // Aguardar regresso à listagem
+    
     await expect(page).toHaveURL('/admin/products', { timeout: 10000 });
 
-    // 4. LISTAR — confirmar que o produto aparece na listagem
+    
     await expect(page.getByText(productName)).toBeVisible({ timeout: 10000 });
 
-    // 5. EDITAR — clicar no botão de edição dentro do card do produto
+    
     const productCard = page
       .locator('[class*="overflow-hidden"]')
       .filter({ has: page.locator('h3', { hasText: productName }) });
     await expect(productCard).toBeVisible({ timeout: 8000 });
-    // Primeiro botão icon dentro do card = Editar (lápis)
+    
     await productCard.getByRole('button').first().click();
     await expect(page).toHaveURL(/\/admin\/products\/edit\//, { timeout: 8000 });
 
@@ -98,49 +99,40 @@ test.describe('Produtos - CRUD Completo via UI (Admin)', () => {
     await expect(page).toHaveURL('/admin/products', { timeout: 10000 });
     await expect(page.getByText(updatedName)).toBeVisible({ timeout: 10000 });
 
-    // 6. EXCLUIR — clicar no botão de remoção e confirmar no AlertDialog
+    
     const updatedCard = page
       .locator('[class*="overflow-hidden"]')
       .filter({ has: page.locator('h3', { hasText: updatedName }) });
     await expect(updatedCard).toBeVisible({ timeout: 8000 });
-    // Segundo botão icon dentro do card = Excluir (lixeira)
+    
     await updatedCard.getByRole('button').nth(1).click();
-    // AlertDialog — confirmar clicando no botão destrutivo
+    
     await page.getByRole('button', { name: /Excluir/i }).last().click();
 
-    // 7. CONFIRMAR exclusão — produto não deve mais aparecer
+    
     await expect(page.getByText(updatedName)).not.toBeVisible({ timeout: 10000 });
-  });
 
-  // [RUBRICA: E2E_CRUD_1_PRODUTOS_FALHAS]
-  // ─── Casos de falha (validados via API — testam comportamento do servidor) ──
-  test('deve falhar ao criar produto sem autenticação (401)', async ({ request }) => {
-    const res = await request.post(`${BASE_API}/products`, {
+    
+    const semAuth = await request.post(`${BASE_API}/products`, {
       data: { name: 'Produto sem auth', description: 'N/A', price: 10, category: 'digital' },
     });
-    expect(res.status()).toBe(401);
-  });
+    expect(semAuth.status()).toBe(401);
 
-  test('deve falhar ao criar produto com dados inválidos — name ausente (400/422)', async ({ request }) => {
-    const res = await request.post(`${BASE_API}/products`, {
+    const invalido = await request.post(`${BASE_API}/products`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: { description: 'Sem nome', price: -1 },
     });
-    expect([400, 422]).toContain(res.status());
-  });
+    expect([400, 422]).toContain(invalido.status());
 
-  test('deve falhar ao editar produto inexistente (404)', async ({ request }) => {
-    const res = await request.put(`${BASE_API}/products/999999`, {
+    const editarInexistente = await request.put(`${BASE_API}/products/999999`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: { name: 'Inexistente', price: 1, category: 'digital' },
     });
-    expect([404, 400]).toContain(res.status());
-  });
+    expect([404, 400]).toContain(editarInexistente.status());
 
-  test('deve falhar ao excluir produto inexistente (404)', async ({ request }) => {
-    const res = await request.delete(`${BASE_API}/products/999999`, {
+    const excluirInexistente = await request.delete(`${BASE_API}/products/999999`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
-    expect([404, 400]).toContain(res.status());
+    expect([404, 400]).toContain(excluirInexistente.status());
   });
 });

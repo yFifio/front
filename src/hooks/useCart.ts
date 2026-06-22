@@ -154,14 +154,14 @@ try {
       }),
       {
         name: 'kids-ebooks-cart',
-        // Persist only the carts map and session key; `items` is derived on rehydration
+        
         partialize: (state) => ({
           sessionKey: state.sessionKey,
           carts: state.carts,
         }),
         onRehydrateStorage: () => (state) => {
           if (state) {
-            // Restore `items` from the correct session cart after loading from localStorage
+            
             state.items = state.carts[state.sessionKey] || [];
           }
         },

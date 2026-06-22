@@ -55,7 +55,8 @@ test.beforeAll(async () => {
 
 test.describe('Categorias - CRUD Completo', () => {
   // [RUBRICA: E2E_CRUD_2_CATEGORIAS_SUCESSO_COMPLETO]
-  test('deve cadastrar, listar, editar e excluir categoria no mesmo cenário', async ({ page }) => {
+  // [RUBRICA: E2E_CRUD_2_CATEGORIAS_FALHAS]
+  test('deve executar CRUD completo de categoria com sucesso e falhas no mesmo cenário', async ({ page, request }) => {
     await page.goto('/auth');
     await page.locator('#login-email').fill(adminEmail);
     await page.locator('#login-password').fill(ADMIN_PASSWORD);
@@ -101,36 +102,27 @@ test.describe('Categorias - CRUD Completo', () => {
     await updatedRow.getByRole('button').nth(1).click();
 
     await expect(page.getByText(updatedName)).not.toBeVisible({ timeout: 10000 });
-  });
 
-  // [RUBRICA: E2E_CRUD_2_CATEGORIAS_FALHAS]
-  test('deve falhar ao criar categoria sem autenticação (401)', async ({ request }) => {
-    const res = await request.post(`${BASE_API}/categories`, {
+    const semAuth = await request.post(`${BASE_API}/categories`, {
       data: { name: 'Categoria sem auth' },
     });
-    expect(res.status()).toBe(401);
-  });
+    expect(semAuth.status()).toBe(401);
 
-  test('deve falhar ao criar categoria sem nome (400)', async ({ request }) => {
-    const res = await request.post(`${BASE_API}/categories`, {
+    const semNome = await request.post(`${BASE_API}/categories`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: {},
     });
-    expect(res.status()).toBe(400);
-  });
+    expect(semNome.status()).toBe(400);
 
-  test('deve falhar ao editar categoria inexistente (404)', async ({ request }) => {
-    const res = await request.put(`${BASE_API}/categories/999999`, {
+    const editarInexistente = await request.put(`${BASE_API}/categories/999999`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: { name: 'Inexistente' },
     });
-    expect(res.status()).toBe(404);
-  });
+    expect(editarInexistente.status()).toBe(404);
 
-  test('deve falhar ao excluir categoria inexistente (404)', async ({ request }) => {
-    const res = await request.delete(`${BASE_API}/categories/999999`, {
+    const excluirInexistente = await request.delete(`${BASE_API}/categories/999999`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
-    expect(res.status()).toBe(404);
+    expect(excluirInexistente.status()).toBe(404);
   });
 });

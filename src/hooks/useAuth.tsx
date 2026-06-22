@@ -51,18 +51,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
+    // Carrega do localStorage imediatamente para exibir o UI sem delay
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser) as User;
         setUser(parsedUser);
         setCartSession(parsedUser.id);
       } catch {
+        // JSON inválido — ignora e deixa o servidor corrigir
+      }
+    }
+
+    // Busca dados frescos do servidor para garantir isAdmin atualizado
+    setIsLoading(true);
+    apiRequest('/users/me')
+      .then((data: { user: User }) => {
+        const freshUser = data.user;
+        localStorage.setItem('user_data', JSON.stringify(freshUser));
+        setUser(freshUser);
+        setCartSession(freshUser.id);
+      })
+      .catch(() => {
+        // Token inválido/expirado — limpa sessão
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
         setUser(null);
         setCartSession(null);
-      }
-    }
+      })
+      .finally(() => setIsLoading(false));
   }, [setCartSession]);
 
   const persistUser = (token: string, userData: User) => {

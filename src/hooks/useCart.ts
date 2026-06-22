@@ -21,8 +21,10 @@ const resolveSessionKey = (userId: number | null | undefined) => {
   return `user:${Number(userId)}`;
 };
 
+let useCart: ReturnType<typeof create<CartStore>>;
+
 try {
-  const useCart = create<CartStore>()(
+  useCart = create<CartStore>()(
     persist(
       (set, get) => ({
         sessionKey: 'guest',

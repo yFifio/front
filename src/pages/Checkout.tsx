@@ -191,7 +191,7 @@ const Checkout = () => {
 
       if (data?.init_point) {
         toast.success('Redirecionando para o Mercado Pago...');
-        window.open(data.init_point, '_blank'); // Abre o sandbox do Mercado Pago em uma nova guia
+        window.open(data.init_point, '_blank'); 
         return;
       }
 

@@ -54,8 +54,8 @@ test.beforeAll(async () => {
 });
 
 test.describe('Categorias - CRUD Completo', () => {
-  // [RUBRICA: E2E_CRUD_2_CATEGORIAS_SUCESSO_COMPLETO]
-  // [RUBRICA: E2E_CRUD_2_CATEGORIAS_FALHAS]
+  
+  
   test('deve executar CRUD completo de categoria com sucesso e falhas no mesmo cenário', async ({ page, request }) => {
     await page.goto('/auth');
     await page.locator('#login-email').fill(adminEmail);

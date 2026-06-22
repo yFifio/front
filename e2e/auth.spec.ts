@@ -11,6 +11,7 @@ function gerarCpfTeste(seed: number): string {
 }
 
 test.describe('Autenticação - Cadastro de Usuário', () => {
+  // [RUBRICA: E2E_CRIACAO_USUARIO_SUCESSO]
   test('deve criar conta com sucesso', async ({ page }) => {
     const timestamp = Date.now();
     const testEmail = `e2e_${timestamp}@teste.local`;
@@ -35,6 +36,7 @@ test.describe('Autenticação - Cadastro de Usuário', () => {
     await expect(page).toHaveURL('/auth', { timeout: 10000 });
   });
 
+  // [RUBRICA: E2E_CRIACAO_USUARIO_FALHA]
   test('deve falhar ao criar conta com email já cadastrado', async ({ page }) => {
     await page.goto('/auth');
 
@@ -60,6 +62,7 @@ test.describe('Autenticação - Cadastro de Usuário', () => {
 });
 
 test.describe('Autenticação - Login', () => {
+  // [RUBRICA: E2E_LOGIN_SUCESSO]
   test('deve fazer login com sucesso', async ({ page }) => {
     await page.goto('/auth');
 
@@ -73,6 +76,7 @@ test.describe('Autenticação - Login', () => {
     await expect(page).toHaveURL('/', { timeout: 10000 });
   });
 
+  // [RUBRICA: E2E_LOGIN_FALHA]
   test('deve falhar com credenciais inválidas', async ({ page }) => {
     await page.goto('/auth');
 

@@ -56,7 +56,7 @@ test.beforeAll(async () => {
 test.describe('Categorias - CRUD Completo', () => {
   
   
-  test('deve exibir indisponibilidade do serviço nas operações de categoria', async ({ page, request }) => {
+  test('deve executar CRUD completo de categoria com sucesso e falhas no mesmo cenário', async ({ page, request }) => {
     await page.goto('/auth');
     await page.locator('#login-email').fill(adminEmail);
     await page.locator('#login-password').fill(ADMIN_PASSWORD);
@@ -69,7 +69,7 @@ test.describe('Categorias - CRUD Completo', () => {
     const categoryName = `Categoria E2E ${Date.now()}`;
     await page.getByRole('button', { name: /Novo/i }).click();
     await expect(page).toHaveURL(/\/admin\/operations\/categories\/new/, { timeout: 8000 });
-    await page.getByRole('textbox').first().fill(categoryName);
+    await page.locator('form input').first().fill(categoryName);
 
     const createResponsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/categories') && resp.request().method() === 'POST',
@@ -78,9 +78,62 @@ test.describe('Categorias - CRUD Completo', () => {
     await page.getByRole('button', { name: /Salvar/i }).click();
 
     const createResponse = await createResponsePromise;
-    expect(createResponse.status()).toBe(503);
-    await expect(page.getByText('Serviço temporariamente indisponível')).toBeVisible({ timeout: 10000 });
-    await expect(page).toHaveURL(/\/admin\/operations\/categories\/new/, { timeout: 5000 });
+    expect(createResponse.status()).toBe(201);
+    const createdCategory = await createResponse.json();
+    const createdCategoryId = Number(createdCategory?.id);
+    expect(Number.isFinite(createdCategoryId)).toBe(true);
+    await expect(page).toHaveURL('/admin/operations/categories', { timeout: 10000 });
+    await expect(page.getByText(categoryName)).toBeVisible({ timeout: 10000 });
+
+    const categoryRow = page
+      .locator('div.flex.items-center.justify-between.border.rounded.p-3')
+      .filter({ hasText: categoryName });
+    await expect(categoryRow).toBeVisible({ timeout: 8000 });
+
+    await categoryRow.getByRole('button').first().click();
+    await expect(page).toHaveURL(/\/admin\/operations\/categories\/edit\//, { timeout: 8000 });
+
+    const updatedName = `${categoryName} EDITADA`;
+    const nameInput = page.locator('form input').first();
+    await nameInput.clear();
+    await nameInput.fill(updatedName);
+
+    const updateResponsePromise = page.waitForResponse(
+      (resp) => /\/api\/categories\/\d+$/.test(resp.url()) && resp.request().method() === 'PUT',
+      { timeout: 10000 }
+    );
+    await page.getByRole('button', { name: /Salvar/i }).click();
+
+    const updateResponse = await updateResponsePromise;
+    expect(updateResponse.status()).toBe(200);
+
+    await expect(page).toHaveURL('/admin/operations/categories', { timeout: 10000 });
+    const updatedEntity = await request.get(`${BASE_API}/categories/${createdCategoryId}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    expect(updatedEntity.status()).toBe(200);
+    const updatedEntityBody = await updatedEntity.json();
+    expect(updatedEntityBody?.name).toBe(updatedName);
+
+    const updatedRow = page
+      .locator('div.flex.items-center.justify-between.border.rounded.p-3')
+      .filter({ hasText: categoryName });
+    await expect(updatedRow).toBeVisible({ timeout: 8000 });
+
+    const deleteResponsePromise = page.waitForResponse(
+      (resp) => /\/api\/categories\/\d+$/.test(resp.url()) && resp.request().method() === 'DELETE',
+      { timeout: 10000 }
+    );
+    page.once('dialog', (dialog) => dialog.accept());
+    await updatedRow.getByRole('button').nth(1).click();
+
+    const deleteResponse = await deleteResponsePromise;
+    expect(deleteResponse.status()).toBe(200);
+
+    const deletedEntity = await request.get(`${BASE_API}/categories/${createdCategoryId}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    expect(deletedEntity.status()).toBe(404);
 
     const semAuth = await request.post(`${BASE_API}/categories`, {
       data: { name: 'Categoria sem auth' },

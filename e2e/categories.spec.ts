@@ -84,7 +84,6 @@ test.describe('Categorias - CRUD Completo', () => {
     const createdCategory = await createResponse.json();
     const createdCategoryId = Number(createdCategory?.id);
     expect(Number.isFinite(createdCategoryId)).toBe(true);
-    
     await expect(page).toHaveURL('/admin/operations/categories', { timeout: 10000 });
     await expect(page.getByText(categoryName)).toBeVisible({ timeout: 10000 });
 
@@ -99,32 +98,37 @@ test.describe('Categorias - CRUD Completo', () => {
 
     const updatedName = `${categoryName} EDITADA`;
     const nameInput = page.locator('form input').first();
-    await nameInput.clear();
-    await nameInput.fill(updatedName);
     
-    // FIX: Garante que o estado do React/Formulário atualize antes de clicar em salvar
-    await nameInput.blur(); 
-    await page.waitForTimeout(300); // Pequeno atraso de segurança
+    // CORREÇÃO AQUI: Simula digitação humana para garantir a atualização do estado do React (evita Flaky Tests)
+    await nameInput.click();
+    await nameInput.clear();
+    await nameInput.pressSequentially(updatedName, { delay: 50 });
+    
+    // Força o Playwright a garantir que o texto lá dentro é o correto antes de procurar o botão
+    await expect(nameInput).toHaveValue(updatedName);
 
     const updateResponsePromise = page.waitForResponse(
       (resp) => /\/api\/categories\/\d+$/.test(resp.url()) && resp.request().method() === 'PUT',
       { timeout: 10000 }
     );
-    await page.getByRole('button', { name: /Salvar/i }).click();
+    
+    const saveButton = page.getByRole('button', { name: /Salvar/i });
+    await expect(saveButton).toBeEnabled();
+    await saveButton.click();
 
     const updateResponse = await updateResponsePromise;
     expect(updateResponse.status()).toBe(200);
 
-    // Retorna para a lista de categorias
     await expect(page).toHaveURL('/admin/operations/categories', { timeout: 10000 });
 
-    // FIX: Primeiro validamos se a UI atualizou e o elemento está visível na tabela
+    // CORREÇÃO AQUI: Primeiro validamos se a UI atualizou e o elemento está visível na tabela
+    // Isso garante que todo o fluxo assíncrono finalizou antes da verificação direta na API
     const updatedRow = page
       .locator('div.flex.items-center.justify-between.border.rounded.p-3')
       .filter({ hasText: updatedName });
     await expect(updatedRow).toBeVisible({ timeout: 8000 });
 
-    // FIX: Somente após a UI estar sincronizada, disparamos a validação extra diretamente na API
+    // Só depois consultamos o backend novamente
     const updatedEntity = await request.get(`${BASE_API}/categories/${createdCategoryId}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
@@ -143,7 +147,6 @@ test.describe('Categorias - CRUD Completo', () => {
     const deleteResponse = await deleteResponsePromise;
     expect(deleteResponse.status()).toBe(200);
 
-    // Valida exclusão na API
     const deletedEntity = await request.get(`${BASE_API}/categories/${createdCategoryId}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });

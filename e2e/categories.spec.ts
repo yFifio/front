@@ -117,7 +117,7 @@ test.describe('Categorias - CRUD Completo', () => {
 
     const updatedRow = page
       .locator('div.flex.items-center.justify-between.border.rounded.p-3')
-      .filter({ hasText: categoryName });
+      .filter({ hasText: updatedName });
     await expect(updatedRow).toBeVisible({ timeout: 8000 });
 
     const deleteResponsePromise = page.waitForResponse(

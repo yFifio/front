@@ -6,10 +6,20 @@ const TEST_PASSWORD = 'Senha@123';
 
 
 let userToken = '';
+let testProductId = 1;
 let createdOrderId: number | null = null;
 
 test.beforeAll(async () => {
   const ctx = await apiRequest.newContext({ ignoreHTTPSErrors: true });
+
+  await ctx.post(`${BASE_API}/register`, {
+    data: {
+      nome: 'Usuário Pedidos E2E',
+      email: TEST_EMAIL,
+      senha: TEST_PASSWORD,
+      cpf: '20414454243',
+    },
+  }).catch(() => undefined);
 
   const loginRes = await ctx.post(`${BASE_API}/login`, {
     data: { email: TEST_EMAIL, senha: TEST_PASSWORD },
@@ -17,6 +27,15 @@ test.beforeAll(async () => {
   const body = await loginRes.json().catch(() => ({}));
   userToken = body.token ?? '';
   if (!userToken) throw new Error('Falha ao autenticar utilizador de teste');
+
+  const productsRes = await ctx.get(`${BASE_API}/products`);
+  const productsBody = await productsRes.json().catch(() => ({}));
+  const firstProduct = Array.isArray(productsBody?.data)
+    ? productsBody.data[0]
+    : Array.isArray(productsBody)
+      ? productsBody[0]
+      : null;
+  testProductId = firstProduct?.id ?? 1;
 
   
   if (!body.user?.isAdmin) {
@@ -36,7 +55,7 @@ test.beforeAll(async () => {
   const orderRes = await ctx.post(`${BASE_API}/orders`, {
     headers: { Authorization: `Bearer ${userToken}` },
     data: {
-      items: [{ productId: 1, productName: 'Produto E2E', price: 19.9, quantity: 1 }],
+      items: [{ productId: testProductId, productName: 'Produto E2E', price: 19.9, quantity: 1 }],
       customerEmail: TEST_EMAIL,
       customerName: (body.user as { nome?: string })?.nome ?? 'Utilizador E2E',
       customerCpf: (body.user as { cpf?: string })?.cpf ?? '20414454243',

@@ -55,17 +55,19 @@ test.beforeAll(async () => {
 
 test.describe('Categorias - CRUD Completo', () => {
   
-  
   test('deve executar CRUD completo de categoria com sucesso e falhas no mesmo cenário', async ({ page, request }) => {
+    // 1. Login
     await page.goto('/auth');
     await page.locator('#login-email').fill(adminEmail);
     await page.locator('#login-password').fill(ADMIN_PASSWORD);
     await page.getByRole('button', { name: /Entrar/i }).click();
     await expect(page).toHaveURL('/', { timeout: 10000 });
 
+    // 2. Navegar para categorias
     await page.goto('/admin/operations/categories');
     await expect(page.getByRole('heading', { name: /Categorias de Livros/i })).toBeVisible({ timeout: 10000 });
 
+    // 3. Criar nova categoria
     const categoryName = `Categoria E2E ${Date.now()}`;
     await page.getByRole('button', { name: /Novo/i }).click();
     await expect(page).toHaveURL(/\/admin\/operations\/categories\/new/, { timeout: 8000 });
@@ -82,6 +84,7 @@ test.describe('Categorias - CRUD Completo', () => {
     const createdCategory = await createResponse.json();
     const createdCategoryId = Number(createdCategory?.id);
     expect(Number.isFinite(createdCategoryId)).toBe(true);
+    
     await expect(page).toHaveURL('/admin/operations/categories', { timeout: 10000 });
     await expect(page.getByText(categoryName)).toBeVisible({ timeout: 10000 });
 
@@ -90,6 +93,7 @@ test.describe('Categorias - CRUD Completo', () => {
       .filter({ hasText: categoryName });
     await expect(categoryRow).toBeVisible({ timeout: 8000 });
 
+    // 4. Editar a categoria criada
     await categoryRow.getByRole('button').first().click();
     await expect(page).toHaveURL(/\/admin\/operations\/categories\/edit\//, { timeout: 8000 });
 
@@ -97,6 +101,10 @@ test.describe('Categorias - CRUD Completo', () => {
     const nameInput = page.locator('form input').first();
     await nameInput.clear();
     await nameInput.fill(updatedName);
+    
+    // FIX: Garante que o estado do React/Formulário atualize antes de clicar em salvar
+    await nameInput.blur(); 
+    await page.waitForTimeout(300); // Pequeno atraso de segurança
 
     const updateResponsePromise = page.waitForResponse(
       (resp) => /\/api\/categories\/\d+$/.test(resp.url()) && resp.request().method() === 'PUT',
@@ -107,7 +115,16 @@ test.describe('Categorias - CRUD Completo', () => {
     const updateResponse = await updateResponsePromise;
     expect(updateResponse.status()).toBe(200);
 
+    // Retorna para a lista de categorias
     await expect(page).toHaveURL('/admin/operations/categories', { timeout: 10000 });
+
+    // FIX: Primeiro validamos se a UI atualizou e o elemento está visível na tabela
+    const updatedRow = page
+      .locator('div.flex.items-center.justify-between.border.rounded.p-3')
+      .filter({ hasText: updatedName });
+    await expect(updatedRow).toBeVisible({ timeout: 8000 });
+
+    // FIX: Somente após a UI estar sincronizada, disparamos a validação extra diretamente na API
     const updatedEntity = await request.get(`${BASE_API}/categories/${createdCategoryId}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
@@ -115,11 +132,7 @@ test.describe('Categorias - CRUD Completo', () => {
     const updatedEntityBody = await updatedEntity.json();
     expect(updatedEntityBody?.name).toBe(updatedName);
 
-    const updatedRow = page
-      .locator('div.flex.items-center.justify-between.border.rounded.p-3')
-      .filter({ hasText: updatedName });
-    await expect(updatedRow).toBeVisible({ timeout: 8000 });
-
+    // 5. Excluir a categoria
     const deleteResponsePromise = page.waitForResponse(
       (resp) => /\/api\/categories\/\d+$/.test(resp.url()) && resp.request().method() === 'DELETE',
       { timeout: 10000 }
@@ -130,11 +143,13 @@ test.describe('Categorias - CRUD Completo', () => {
     const deleteResponse = await deleteResponsePromise;
     expect(deleteResponse.status()).toBe(200);
 
+    // Valida exclusão na API
     const deletedEntity = await request.get(`${BASE_API}/categories/${createdCategoryId}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
     expect(deletedEntity.status()).toBe(404);
 
+    // 6. Testes de borda e falhas
     const semAuth = await request.post(`${BASE_API}/categories`, {
       data: { name: 'Categoria sem auth' },
     });

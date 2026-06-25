@@ -151,7 +151,7 @@ test.describe('Categorias - CRUD Completo', () => {
     });
     expect(deletedEntity.status()).toBe(404);
 
-    // 6. Testes de borda e falhas
+    
     const semAuth = await request.post(`${BASE_API}/categories`, {
       data: { name: 'Categoria sem auth' },
     });

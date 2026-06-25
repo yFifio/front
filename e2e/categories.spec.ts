@@ -56,18 +56,18 @@ test.beforeAll(async () => {
 test.describe('Categorias - CRUD Completo', () => {
   
   test('deve executar CRUD completo de categoria com sucesso e falhas no mesmo cenário', async ({ page, request }) => {
-    // 1. Login
+
     await page.goto('/auth');
     await page.locator('#login-email').fill(adminEmail);
     await page.locator('#login-password').fill(ADMIN_PASSWORD);
     await page.getByRole('button', { name: /Entrar/i }).click();
     await expect(page).toHaveURL('/', { timeout: 10000 });
 
-    // 2. Navegar para categorias
+
     await page.goto('/admin/operations/categories');
     await expect(page.getByRole('heading', { name: /Categorias de Livros/i })).toBeVisible({ timeout: 10000 });
 
-    // 3. Criar nova categoria
+
     const categoryName = `Categoria E2E ${Date.now()}`;
     await page.getByRole('button', { name: /Novo/i }).click();
     await expect(page).toHaveURL(/\/admin\/operations\/categories\/new/, { timeout: 8000 });
@@ -92,19 +92,19 @@ test.describe('Categorias - CRUD Completo', () => {
       .filter({ hasText: categoryName });
     await expect(categoryRow).toBeVisible({ timeout: 8000 });
 
-    // 4. Editar a categoria criada
+
     await categoryRow.getByRole('button').first().click();
     await expect(page).toHaveURL(/\/admin\/operations\/categories\/edit\//, { timeout: 8000 });
 
     const updatedName = `${categoryName} EDITADA`;
     const nameInput = page.locator('form input').first();
     
-    // CORREÇÃO AQUI: Simula digitação humana para garantir a atualização do estado do React (evita Flaky Tests)
+
     await nameInput.click();
     await nameInput.clear();
     await nameInput.pressSequentially(updatedName, { delay: 50 });
     
-    // Força o Playwright a garantir que o texto lá dentro é o correto antes de procurar o botão
+   
     await expect(nameInput).toHaveValue(updatedName);
 
     const updateResponsePromise = page.waitForResponse(
@@ -121,14 +121,13 @@ test.describe('Categorias - CRUD Completo', () => {
 
     await expect(page).toHaveURL('/admin/operations/categories', { timeout: 10000 });
 
-    // CORREÇÃO AQUI: Primeiro validamos se a UI atualizou e o elemento está visível na tabela
-    // Isso garante que todo o fluxo assíncrono finalizou antes da verificação direta na API
+
     const updatedRow = page
       .locator('div.flex.items-center.justify-between.border.rounded.p-3')
       .filter({ hasText: updatedName });
     await expect(updatedRow).toBeVisible({ timeout: 8000 });
 
-    // Só depois consultamos o backend novamente
+
     const updatedEntity = await request.get(`${BASE_API}/categories/${createdCategoryId}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
@@ -136,7 +135,7 @@ test.describe('Categorias - CRUD Completo', () => {
     const updatedEntityBody = await updatedEntity.json();
     expect(updatedEntityBody?.name).toBe(updatedName);
 
-    // 5. Excluir a categoria
+   
     const deleteResponsePromise = page.waitForResponse(
       (resp) => /\/api\/categories\/\d+$/.test(resp.url()) && resp.request().method() === 'DELETE',
       { timeout: 10000 }

@@ -1,6 +1,6 @@
 import { test, expect, request as apiRequest } from '@playwright/test';
 
-const BASE_API = 'https://meuapp.local/api';
+const BASE_API = process.env.E2E_API_URL ?? 'http://127.0.0.1:3001/api';
 const ADMIN_PASSWORD = 'Admin@123';
 
 function gerarCpfValido(seed: number): string {
@@ -15,30 +15,30 @@ function gerarCpfValido(seed: number): string {
 let adminEmail = '';
 let adminToken = '';
 
-
 test.beforeAll(async () => {
   const seed = Date.now();
   adminEmail = `admin_ui_${seed}@teste.local`;
   const adminCpf = gerarCpfValido(seed);
-
   const ctx = await apiRequest.newContext({ ignoreHTTPSErrors: true });
-
+  
   await ctx.post(`${BASE_API}/register`, {
     data: { nome: 'Admin UI E2E', email: adminEmail, senha: ADMIN_PASSWORD, cpf: adminCpf },
   });
-
+  
   const loginRes = await ctx.post(`${BASE_API}/login`, {
     data: { email: adminEmail, senha: ADMIN_PASSWORD },
   });
+  
   const body = await loginRes.json().catch(() => ({}));
   adminToken = body.token ?? '';
   if (!adminToken) throw new Error('Falha ao autenticar admin');
-
+  
   if (!body.user?.isAdmin) {
     await ctx.put(`${BASE_API}/users/me`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: { isAdmin: true },
     });
+    
     const relogin = await ctx.post(`${BASE_API}/login`, {
       data: { email: adminEmail, senha: ADMIN_PASSWORD },
     });
@@ -46,42 +46,36 @@ test.beforeAll(async () => {
     adminToken = rb.token ?? '';
     if (!adminToken || !rb.user?.isAdmin) throw new Error('Falha ao promover admin');
   }
-
   await ctx.dispose();
 });
 
-
 test.describe('Produtos - CRUD Completo via UI (Admin)', () => {
-  
-  
-  test('deve executar CRUD completo de produto com sucesso e falhas no mesmo cenário', async ({ page, request }) => {
-    
+  test('deve executar CRUD completo de produto com sucesso e falhas no mesmo cenario', async ({ page, request }) => {
     await page.goto('/auth');
     await page.locator('#login-email').fill(adminEmail);
     await page.locator('#login-password').fill(ADMIN_PASSWORD);
     await page.getByRole('button', { name: /Entrar/i }).click();
     await expect(page).toHaveURL('/', { timeout: 10000 });
-
     
     await page.goto('/admin/products');
     await expect(page.getByRole('heading', { name: /Produtos/i })).toBeVisible({ timeout: 8000 });
-
     
     await page.getByRole('button', { name: /Novo Produto/i }).click();
     await expect(page).toHaveURL(/\/admin\/products\/new/, { timeout: 8000 });
-
+    
     const productName = `Produto UI E2E ${Date.now()}`;
-    await page.getByRole('textbox').first().fill(productName);
+    await page.locator('input').first().fill(productName);
     await page.locator('input[type="number"]').first().fill('49.90');
     
+    const createResponsePromise = page.waitForResponse(
+      (resp) => resp.url().includes('/api/products') && resp.request().method() === 'POST',
+      { timeout: 12000 }
+    );
     await page.getByRole('button', { name: /Salvar/i }).click();
-
-    
+    const createResponse = await createResponsePromise;
+    expect(createResponse.status()).toBe(201);
     await expect(page).toHaveURL('/admin/products', { timeout: 10000 });
-
-    
     await expect(page.getByText(productName)).toBeVisible({ timeout: 10000 });
-
     
     const productCard = page
       .locator('[class*="overflow-hidden"]')
@@ -90,15 +84,21 @@ test.describe('Produtos - CRUD Completo via UI (Admin)', () => {
     
     await productCard.getByRole('button').first().click();
     await expect(page).toHaveURL(/\/admin\/products\/edit\//, { timeout: 8000 });
-
+    
     const updatedName = `${productName} EDITADO`;
-    const nameInput = page.getByRole('textbox').first();
+    const nameInput = page.locator('input').first();
     await nameInput.clear();
     await nameInput.fill(updatedName);
+
+    const updateResponsePromise = page.waitForResponse(
+      (resp) => /\/api\/products\/\d+$/.test(resp.url()) && resp.request().method() === 'PUT',
+      { timeout: 12000 }
+    );
     await page.getByRole('button', { name: /Salvar/i }).click();
+    const updateResponse = await updateResponsePromise;
+    expect(updateResponse.status()).toBe(200);
     await expect(page).toHaveURL('/admin/products', { timeout: 10000 });
     await expect(page.getByText(updatedName)).toBeVisible({ timeout: 10000 });
-
     
     const updatedCard = page
       .locator('[class*="overflow-hidden"]')
@@ -106,30 +106,26 @@ test.describe('Produtos - CRUD Completo via UI (Admin)', () => {
     await expect(updatedCard).toBeVisible({ timeout: 8000 });
     
     await updatedCard.getByRole('button').nth(1).click();
-    
     await page.getByRole('button', { name: /Excluir/i }).last().click();
-
-    
     await expect(page.getByText(updatedName)).not.toBeVisible({ timeout: 10000 });
-
     
     const semAuth = await request.post(`${BASE_API}/products`, {
       data: { name: 'Produto sem auth', description: 'N/A', price: 10, category: 'digital' },
     });
     expect(semAuth.status()).toBe(401);
-
+    
     const invalido = await request.post(`${BASE_API}/products`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: { description: 'Sem nome', price: -1 },
     });
     expect([400, 422]).toContain(invalido.status());
-
+    
     const editarInexistente = await request.put(`${BASE_API}/products/999999`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: { name: 'Inexistente', price: 1, category: 'digital' },
     });
     expect([404, 400]).toContain(editarInexistente.status());
-
+    
     const excluirInexistente = await request.delete(`${BASE_API}/products/999999`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });

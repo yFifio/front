@@ -150,7 +150,7 @@ test.describe('Pedidos - CRUD Completo', () => {
     
     await page.goto('/my-orders');
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('body')).not.toContainText('404', { timeout: 5000 });
+    await expect(page.locator('body')).not.toContainText(/p[aá]gina n[aã]o encontrada|not found/i, { timeout: 5000 });
     
     await page.goto('/admin/orders');
     await expect(page.getByRole('heading', { name: /Pedidos/i })).toBeVisible({ timeout: 8000 });

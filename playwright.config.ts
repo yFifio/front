@@ -22,7 +22,8 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `PORT=${API_PORT} npm run dev`,
+      command:
+        `DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASSWORD=admin DB_NAME=biblioteca_brincar PORT=${API_PORT} npm run dev`,
       cwd: '../server',
       url: `${API_ORIGIN}/health`,
       reuseExistingServer: !process.env.CI,

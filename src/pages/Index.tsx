@@ -35,15 +35,13 @@ const Index = () => {
     queryFn: async () => apiRequest('/categories') as Promise<{ data?: Array<{ name?: string | null }> } | Array<{ name?: string | null }>>,
   });
   
-  const { 
-    items, 
-    addItem, 
-    updateQuantity, 
-    removeItem, 
-    syncProducts,
-    getTotalItems, 
-    getTotalPrice,
-  } = useCart();
+  const items = useCart((state) => state.items);
+  const addItem = useCart((state) => state.addItem);
+  const updateQuantity = useCart((state) => state.updateQuantity);
+  const removeItem = useCart((state) => state.removeItem);
+  const syncProducts = useCart((state) => state.syncProducts);
+  const getTotalItems = useCart((state) => state.getTotalItems);
+  const getTotalPrice = useCart((state) => state.getTotalPrice);
 
   const currentProducts = activeTab === 'digital' ? digitalProducts : physicalProducts;
   const currentLoading = activeTab === 'digital' ? isLoadingDigital : isLoadingPhysical;
@@ -233,6 +231,7 @@ const Index = () => {
             />
           </section>
         )}
+
       </main>
       
       <Footer />

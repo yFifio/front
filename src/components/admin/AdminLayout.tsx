@@ -38,7 +38,7 @@ export function AdminLayout() {
         return;
       }
 
-      setIsAdmin(true);
+      setIsAdmin(Boolean(user.isAdmin));
     }
 
     if (!authLoading) {

@@ -1,5 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const BASE_URL = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:8080';
+const API_PORT = process.env.E2E_API_PORT ?? '3001';
+const API_BASE = process.env.E2E_API_URL ?? `http://127.0.0.1:${API_PORT}/api`;
+const API_ORIGIN = API_BASE.replace(/\/api\/?$/, '');
+
+process.env.E2E_API_URL = API_BASE;
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -8,11 +15,28 @@ export default defineConfig({
   workers: 1,
   reporter: 'html',
   use: {
-    baseURL: 'https://meuapp.local',
+    baseURL: BASE_URL,
     ignoreHTTPSErrors: true,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
+  webServer: [
+    {
+      command:
+        `DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASSWORD=admin DB_NAME=biblioteca_brincar PORT=${API_PORT} npm run dev`,
+      cwd: '../server',
+      url: `${API_ORIGIN}/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: `VITE_API_PROXY_TARGET=${API_ORIGIN} npm run dev`,
+      cwd: '.',
+      url: BASE_URL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
   projects: [
     {
       name: 'chromium',

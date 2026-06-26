@@ -13,7 +13,7 @@ const cpfSchema = z
   .length(11, 'Formato de CPF inválido (11 números)')
   .refine((value) => validarCPF(value), 'CPF inválido');
 
-describe('Validações do Front-end (Regras da Rubrica)', () => {
+describe('Validações do Front-end', () => {
   it('Deve bloquear um e-mail com formato inválido', () => {
     const result = emailSchema.safeParse('email-sem-arroba.com');
     expect(result.success).toBe(false);

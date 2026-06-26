@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 
 const getLuminance = (r: number, g: number, b: number) => {
@@ -57,7 +57,7 @@ export const StarCursor: React.FC = () => {
   const [cursorColor, setCursorColor] = useState({ hex: '#8B00FF', label: 'purple' });
   const [rotation, setRotation] = useState(0);
 
-  let sampleTimeout: NodeJS.Timeout;
+  const sampleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -68,9 +68,9 @@ export const StarCursor: React.FC = () => {
       
       setRotation((prev) => (prev + 5) % 360);
 
-      if (sampleTimeout) clearTimeout(sampleTimeout);
+      if (sampleTimeoutRef.current) clearTimeout(sampleTimeoutRef.current);
 
-      sampleTimeout = setTimeout(() => {
+      sampleTimeoutRef.current = setTimeout(() => {
         const bgColor = getColorUnderCursor(x, y);
 
         const purpleDiff = getColorDifference(
@@ -133,7 +133,7 @@ export const StarCursor: React.FC = () => {
     document.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
-      if (sampleTimeout) clearTimeout(sampleTimeout);
+      if (sampleTimeoutRef.current) clearTimeout(sampleTimeoutRef.current);
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseenter', handleMouseEnter);
       document.removeEventListener('mouseleave', handleMouseLeave);

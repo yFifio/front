@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +35,7 @@ export default function OperationsListPage() {
 
   const resourceType = useMemo(() => (isResourceType(resource) ? resource : null), [resource]);
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     if (!resourceType) return;
     setLoading(true);
     try {
@@ -48,11 +48,11 @@ export default function OperationsListPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [limit, page, resourceType]);
 
   useEffect(() => {
     fetchItems();
-  }, [resourceType, page]);
+  }, [fetchItems]);
 
   const handleDelete = async (id: number) => {
     if (!resourceType) return;

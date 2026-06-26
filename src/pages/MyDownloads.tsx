@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,18 +38,7 @@ const MyDownloads = () => {
   const [activeTab, setActiveTab] = useState<'downloads' | 'history'>('downloads');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-      return;
-    }
-
-    if (user) {
-      fetchOrders();
-    }
-  }, [authLoading, user, navigate]);
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await apiRequest(`/orders?userId=${user?.id}`);
@@ -85,7 +74,18 @@ const MyDownloads = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+      return;
+    }
+
+    if (user) {
+      fetchOrders();
+    }
+  }, [authLoading, user, navigate, fetchOrders]);
 
   const digitalOrders = useMemo(
     () =>

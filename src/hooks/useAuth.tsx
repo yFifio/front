@@ -58,7 +58,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(parsedUser);
         setCartSession(parsedUser.id);
       } catch {
-        
+        localStorage.removeItem('user_data');
+        setUser(null);
+        setCartSession(null);
       }
     }
 

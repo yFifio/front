@@ -53,7 +53,7 @@ const Checkout = () => {
     return items.some(item => item.product.category === 'physical');
   }, [items]);
 
-  const subtotal = useMemo(() => getTotalPrice(), [getTotalPrice, items]);
+  const subtotal = useMemo(() => getTotalPrice(), [getTotalPrice]);
   const couponDiscountAmount = useMemo(() => {
     if (!appliedCoupon) return 0;
     return Number(((subtotal * appliedCoupon.discount) / 100).toFixed(2));

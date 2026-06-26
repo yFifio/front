@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,19 +22,6 @@ const OrderSuccess = () => {
   const hasClearedCartAfterApproval = useRef(false);
 
   useEffect(() => {
-    if (orderId) {
-      fetchPaymentStatus();
-      const interval = setInterval(fetchPaymentStatus, 3000);
-      const timeout = setTimeout(() => clearInterval(interval), 30000);
-      
-      return () => {
-        clearInterval(interval);
-        clearTimeout(timeout);
-      };
-    }
-  }, [clearCart, orderId, paymentId]);
-
-  useEffect(() => {
     const mpStatus = paymentInfo?.latest_webhook?.mercado_pago_status || paymentStatus;
     const isApproved = mpStatus === 'approved' || paymentInfo?.order_status === 'paid';
     if (!isApproved || hasClearedCartAfterApproval.current) {
@@ -44,7 +31,7 @@ const OrderSuccess = () => {
     hasClearedCartAfterApproval.current = true;
   }, [clearCart, paymentInfo, paymentStatus]);
 
-  const fetchPaymentStatus = async () => {
+  const fetchPaymentStatus = useCallback(async () => {
     try {
       if (!orderId) return;
       const query = paymentId ? `?payment_id=${encodeURIComponent(paymentId)}` : '';
@@ -65,7 +52,20 @@ const OrderSuccess = () => {
       console.error('Erro ao buscar status:', error);
       setIsLoading(false);
     }
-  };
+  }, [orderId, paymentId]);
+
+  useEffect(() => {
+    if (orderId) {
+      fetchPaymentStatus();
+      const interval = setInterval(fetchPaymentStatus, 3000);
+      const timeout = setTimeout(() => clearInterval(interval), 30000);
+
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
+    }
+  }, [orderId, fetchPaymentStatus]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);

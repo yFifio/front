@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -43,17 +43,6 @@ const MyOrders = () => {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'physical' | 'digital'>('all');
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-      return;
-    }
-
-    if (user) {
-      fetchUserOrders();
-    }
-  }, [user, authLoading, navigate]);
-
   const syncPendingOrders = async (list: Order[]) => {
     const pendingOrders = list.filter(order => order.status === 'pending');
     if (pendingOrders.length === 0) return false;
@@ -69,7 +58,7 @@ const MyOrders = () => {
     return results.some(Boolean);
   };
 
-  const fetchUserOrders = async (skipSync = false) => {
+  const fetchUserOrders = useCallback(async (skipSync = false) => {
     try {
       const ordersData = await apiRequest(`/orders?userId=${user?.id}`);
       const list: Order[] = Array.isArray(ordersData) ? ordersData : (ordersData?.data || ordersData?.rows || []);
@@ -113,7 +102,18 @@ const MyOrders = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+      return;
+    }
+
+    if (user) {
+      fetchUserOrders();
+    }
+  }, [user, authLoading, navigate, fetchUserOrders]);
 
   const handleDownload = async (download: DownloadItem) => {
     if (!download.download_token) {

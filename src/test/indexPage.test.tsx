@@ -86,15 +86,27 @@ vi.mock('@/hooks/useProducts', () => ({
 }));
 
 vi.mock('@/hooks/useCart', () => ({
-  useCart: () => ({
-    items: cartItems,
-    addItem: addItemMock,
-    updateQuantity: updateQuantityMock,
-    removeItem: removeItemMock,
-    syncProducts: syncProductsMock,
-    getTotalItems: () => cartItems.reduce((total, item) => total + item.quantity, 0),
-    getTotalPrice: () => cartItems.reduce((total, item) => total + item.product.price * item.quantity, 0),
-  }),
+  useCart: (selector: (state: {
+    items: Array<{ product: Product; quantity: number }>;
+    addItem: typeof addItemMock;
+    updateQuantity: typeof updateQuantityMock;
+    removeItem: typeof removeItemMock;
+    syncProducts: typeof syncProductsMock;
+    getTotalItems: () => number;
+    getTotalPrice: () => number;
+  }) => unknown) => {
+    const state = {
+      items: cartItems,
+      addItem: addItemMock,
+      updateQuantity: updateQuantityMock,
+      removeItem: removeItemMock,
+      syncProducts: syncProductsMock,
+      getTotalItems: () => cartItems.reduce((total, item) => total + item.quantity, 0),
+      getTotalPrice: () => cartItems.reduce((total, item) => total + item.product.price * item.quantity, 0),
+    };
+
+    return selector ? selector(state) : state;
+  },
 }));
 
 vi.mock('@/components/store/HeroSection', () => ({
